@@ -13,15 +13,20 @@ import { pulsionSchema } from './modules/pulsion/schema.js';
 import { testsSchema } from './modules/tests/schema.js';
 import { challengeSchema } from './modules/challenge/schema.js';
 import { autoClose } from './modules/challenge/ops.js';
+import { mindSchema } from './modules/mind/schema.js';
 import * as suiviDay from './modules/suivi/views/day.js';
 import * as suiviData from './modules/suivi/views/data.js';
 import * as pulsionHome from './modules/pulsion/views/home.js';
 import * as challengeHome from './modules/challenge/views/home.js';
 import * as testsHome from './modules/tests/views/home.js';
 import * as testsRun from './modules/tests/views/run.js';
+import * as mindHome from './modules/mind/views/home.js';
+import * as mindSubject from './modules/mind/views/subject.js';
+import * as mindSearch from './modules/mind/views/search.js';
+import * as mindTree from './modules/mind/views/tree.js';
 import * as settingsHome from './modules/settings/views/home.js';
 
-export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema };
+export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema, mind: mindSchema };
 
 // Modules affichables : libellé, stores dont une notification rerend l'écran, vues par nom de route.
 const MODULES = {
@@ -29,7 +34,8 @@ const MODULES = {
   pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: pulsionHome.render } },
   challenge: { label: 'Challenge', stores: ['challenge'], views: { home: challengeHome.render, c: challengeHome.render } },
   tests: { label: 'Tests', stores: ['tests'], views: { home: testsHome.render, run: testsRun.render } },
-  settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'challenge', 'tests'], views: { home: settingsHome.render } },
+  mind: { label: 'Mind', stores: ['mind'], views: { home: mindHome.render, s: mindSubject.render, search: mindSearch.render, tree: mindTree.render } },
+  settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'challenge', 'tests', 'mind'], views: { home: settingsHome.render } },
 };
 const TAB_ORDER = ['suivi', 'pulsion', 'challenge', 'tests', 'mind', 'rappel'].filter(t => MODULES[t]);
 

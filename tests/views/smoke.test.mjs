@@ -206,3 +206,31 @@ test('Mind fiche : fil d\'Ariane, poids, actions du sous-arbre, journal agrégé
   render(root, ctx);
   assert.match(root.innerHTML, /Sujet introuvable/);
 });
+
+test('Mind recherche et vue d\'ensemble', async () => {
+  const search = await import('../../js/modules/mind/views/search.js');
+  const tree = await import('../../js/modules/mind/views/tree.js');
+  const { makeDoc } = await import('../mind/fixtures.mjs');
+  const root = fakeRoot(), ctx = makeCtx();
+  ctx.stores.mind.replace(makeDoc());
+  search.render(root, ctx);
+  assert.match(root.innerHTML, /class="search-input"/);
+  tree.render(root, ctx);
+  assert.match(root.innerHTML, /Vue d'ensemble/);
+  assert.match(root.innerHTML, /data-go="relations"/);
+  assert.match(root.innerHTML, /data-toggle="papa"/);
+  assert.match(root.innerHTML, /Afficher les sujets posés/);
+  assert.equal(root.innerHTML.includes('data-go="moi"'), false);
+});
+
+test('Réglages : section Sujets posés quand le store Mind existe', async () => {
+  const { render } = await import('../../js/modules/settings/views/home.js');
+  const { makeDoc } = await import('../mind/fixtures.mjs');
+  const root = fakeRoot(), ctx = makeCtx();
+  ctx.stores.mind.replace(makeDoc());
+  render(root, ctx);
+  assert.match(root.innerHTML, /Sujets posés/);
+  assert.match(root.innerHTML, /data-mind="moi"/);
+  assert.match(root.innerHTML, /data-mind="vacances"/);
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 5); // suivi, pulsion, challenge, tests, mind
+});

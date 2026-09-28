@@ -4,6 +4,9 @@ import { moduleExportJson, moduleExportFilename, parseModuleExport, parseBundle,
 import { hasLegacy, migrateLegacy } from '../../../core/migrate-legacy.js';
 import { THEMES } from '../schema.js';
 import { PRESETS } from '../../rappel/presets.js';
+import { restedSubjects } from '../../mind/queries.js';
+import { pathLabel } from '../../mind/views/helpers.js';
+import { formatDate } from '../../../core/dates.js';
 
 export const MODULE_LABELS = { suivi: 'Suivi', pulsion: 'Pulsion', challenge: 'Challenge', tests: 'Tests', mind: 'Mind', rappel: 'Rappel' };
 const THEME_LABELS = { system: 'Système', light: 'Clair', dark: 'Sombre' };
@@ -58,6 +61,14 @@ export function render(root, ctx) {
       ${rowBtn('data-bundle', 'Télécharger le bundle complet', 'Tous les modules, sans la clé API')}
       <p class="empty">${escapeHtml(cloudStatus(storage))}</p>
     </section>
+
+    ${stores.mind ? `<section class="section">
+      <h2 class="section-title">Sujets posés</h2>
+      ${restedSubjects(stores.mind.doc).map(s => `<button type="button" class="row" data-mind="${escapeHtml(s.id)}">
+        <span class="row-main"><span class="row-title">${escapeHtml(s.title)}</span><span class="row-sub">${escapeHtml(pathLabel(stores.mind.doc, s.id))}</span></span>
+        <span class="row-aside">posé le ${escapeHtml(formatDate(s.restedAt))}</span>
+      </button>`).join('') || "<p class=\"empty\">Rien de posé pour l'instant.</p>"}
+    </section>` : ''}
 
     ${hasLegacy(storage) ? `<section class="section">
       <h2 class="section-title">Ancienne app Suivi</h2>
@@ -126,6 +137,8 @@ export function render(root, ctx) {
   }
 
   root.onclick = e => {
+    const mind = e.target.closest('[data-mind]');
+    if (mind) return ctx.navigate({ tab: 'mind', view: 's', id: mind.dataset.mind });
     const pref = e.target.closest('[data-theme-pref]');
     if (pref) { const k = pref.dataset.themePref; stores.settings.commit(d => { d.theme = k; }); ctx.applyTheme(k); return; }
     const ex = e.target.closest('[data-export]');
