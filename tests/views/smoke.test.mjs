@@ -13,8 +13,12 @@ import * as suiviData from '../../js/modules/suivi/views/data.js';
 import { memoryStorage, fakeNow, fakeId, resetFakes } from '../fixtures/helpers.mjs';
 
 export function fakeRoot() {
-  // querySelector rend un élément inerte : classList, et les champs nommés d'un formulaire.
-  return { innerHTML: '', querySelector: () => ({ classList: { toggle() {} }, provider: {}, model: {}, apiKey: {} }), querySelectorAll: () => [] };
+  // Élément inerte récursif : classList, champs de formulaire, sous-requêtes, écouteurs.
+  const el = { innerHTML: '', textContent: '', classList: { toggle() {}, add() {}, remove() {} }, provider: {}, model: {}, apiKey: {},
+    addEventListener() {}, removeEventListener() {} };
+  el.querySelector = () => el;
+  el.querySelectorAll = () => [];
+  return { innerHTML: '', querySelector: () => el, querySelectorAll: () => [] };
 }
 
 export function makeCtx() {
@@ -112,4 +116,39 @@ test('Challenge : formulaire sans actif, écran actif avec bande, passé en lect
   render(root, ctx);
   assert.match(root.innerHTML, /Cardio &lt;3/);
   assert.equal(root.innerHTML.includes('data-toggle'), false);
+});
+
+test('Tests : cartes du catalogue, dernier run, courbe à partir du deuxième run, historique avec repli', async () => {
+  const { render } = await import('../../js/modules/tests/views/home.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  ctx.stores.tests.commit(d => { d.runs.push(
+    { id: 1, ts: '2026-09-07T09:00:00.000Z', day: '2026-09-07', test: 'pvt', metrics: { median: 260, lapses: 1, n: 40 } },
+    { id: 2, ts: '2026-09-14T09:00:00.000Z', day: '2026-09-14', test: 'pvt', metrics: { median: 250, lapses: 0, n: 41 } },
+    { id: 3, ts: '2026-09-14T09:10:00.000Z', day: '2026-09-14', test: 'span', metrics: { span: 5, correct: 3, trials: 4 } },
+    { id: 4, ts: '2026-08-01T09:10:00.000Z', day: '2026-08-01', test: 'phq', metrics: { score: 6, band: 'léger' } },
+  ); });
+  render(root, ctx);
+  assert.equal((root.innerHTML.match(/data-run="/g) || []).length, 2);
+  assert.match(root.innerHTML, /PVT 250 ms · 0 lapses/);
+  assert.equal((root.innerHTML.match(/<svg/g) || []).length, 1); // PVT a deux runs, PHQ-8 un seul
+  assert.match(root.innerHTML, /1 run enregistré/);
+  assert.match(root.innerHTML, /Empan inversé 5 · 3\/4 essais/);
+  assert.match(root.innerHTML, /PHQ-8 6\/24 · léger/);
+});
+
+test('Tests : la passation enregistre un run à Enregistrer et nettoie en quittant', async () => {
+  const { render } = await import('../../js/modules/tests/views/run.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  let leave = null;
+  ctx.onLeave = fn => { leave = fn; };
+  const nav = []; ctx.navigate = r => nav.push(r);
+  ctx.route = { tab: 'tests', view: 'run', id: 'phq8' };
+  render(root, ctx);
+  assert.equal(typeof leave, 'function');
+  assert.match(root.innerHTML, /Quitter/);
+  leave();
+  ctx.route = { tab: 'tests', view: 'run', id: 'nope' };
+  render(root, ctx);
+  assert.match(root.innerHTML, /Test inconnu/);
+  assert.equal(ctx.stores.tests.doc.runs.length, 0);
 });

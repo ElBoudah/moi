@@ -17,6 +17,8 @@ import * as suiviDay from './modules/suivi/views/day.js';
 import * as suiviData from './modules/suivi/views/data.js';
 import * as pulsionHome from './modules/pulsion/views/home.js';
 import * as challengeHome from './modules/challenge/views/home.js';
+import * as testsHome from './modules/tests/views/home.js';
+import * as testsRun from './modules/tests/views/run.js';
 import * as settingsHome from './modules/settings/views/home.js';
 
 export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema };
@@ -26,6 +28,7 @@ const MODULES = {
   suivi: { label: 'Suivi', stores: ['suivi', 'pulsion'], views: { home: suiviDay.render, data: suiviData.render } },
   pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: pulsionHome.render } },
   challenge: { label: 'Challenge', stores: ['challenge'], views: { home: challengeHome.render, c: challengeHome.render } },
+  tests: { label: 'Tests', stores: ['tests'], views: { home: testsHome.render, run: testsRun.render } },
   settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'challenge', 'tests'], views: { home: settingsHome.render } },
 };
 const TAB_ORDER = ['suivi', 'pulsion', 'challenge', 'tests', 'mind', 'rappel'].filter(t => MODULES[t]);
@@ -60,7 +63,8 @@ function main() {
   tabbar.onclick = e => { const b = e.target.closest('[data-tab]'); if (b) navigate({ tab: b.dataset.tab }); };
 
   let route = null;
-  const ctx = { stores, schemas: SCHEMAS, storage, navigate, notice, today, applyTheme, version: APP_VERSION, getBundle, get route() { return route; } };
+  let leave = null; // nettoyage de la vue courante, appelé une fois au prochain changement de route
+  const ctx = { stores, schemas: SCHEMAS, storage, navigate, notice, today, applyTheme, version: APP_VERSION, getBundle, onLeave: fn => { leave = fn; }, get route() { return route; } };
 
   function draw() {
     const mod = MODULES[route.tab];
@@ -81,6 +85,8 @@ function main() {
       return;
     }
     flushDeferred();
+    leave?.();
+    leave = null;
     route = r;
     closeSheet();
     window.scrollTo(0, 0);
