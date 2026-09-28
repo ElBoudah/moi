@@ -11,18 +11,22 @@ import { settingsSchema } from './modules/settings/schema.js';
 import { suiviSchema } from './modules/suivi/schema.js';
 import { pulsionSchema } from './modules/pulsion/schema.js';
 import { testsSchema } from './modules/tests/schema.js';
+import { challengeSchema } from './modules/challenge/schema.js';
+import { autoClose } from './modules/challenge/ops.js';
 import * as suiviDay from './modules/suivi/views/day.js';
 import * as suiviData from './modules/suivi/views/data.js';
 import * as pulsionHome from './modules/pulsion/views/home.js';
+import * as challengeHome from './modules/challenge/views/home.js';
 import * as settingsHome from './modules/settings/views/home.js';
 
-export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, tests: testsSchema };
+export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema };
 
 // Modules affichables : libellé, stores dont une notification rerend l'écran, vues par nom de route.
 const MODULES = {
   suivi: { label: 'Suivi', stores: ['suivi', 'pulsion'], views: { home: suiviDay.render, data: suiviData.render } },
   pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: pulsionHome.render } },
-  settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'tests'], views: { home: settingsHome.render } },
+  challenge: { label: 'Challenge', stores: ['challenge'], views: { home: challengeHome.render, c: challengeHome.render } },
+  settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'challenge', 'tests'], views: { home: settingsHome.render } },
 };
 const TAB_ORDER = ['suivi', 'pulsion', 'challenge', 'tests', 'mind', 'rappel'].filter(t => MODULES[t]);
 
@@ -38,6 +42,7 @@ function main() {
   for (const s of Object.values(stores)) { s.load(); s.onSaveError = notice; }
   const migrated = fresh && hasLegacy(storage) ? migrateLegacy(storage, stores) : [];
   applyTheme(stores.settings.doc.theme);
+  autoClose(stores.challenge, today());
 
   const getBundle = () => bundleJson(Object.fromEntries(Object.entries(stores).map(([n, s]) => [n, s.doc])));
   const dailyBackups = () => {
@@ -87,7 +92,7 @@ function main() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushDeferred(); });
   window.addEventListener('pagehide', flushDeferred);
   // PWA gardée en mémoire la nuit : au réveil un autre jour, backups du jour et écran rerendu sur la bonne date.
-  watchDayChange({ today, onChange: () => { dailyBackups(); if (route) draw(); } });
+  watchDayChange({ today, onChange: () => { autoClose(stores.challenge, today()); dailyBackups(); if (route) draw(); } });
   if (migrated.length) notice('Données Suivi reprises.');
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { type: 'module' }).catch(() => { /* hors ligne indisponible, l'app fonctionne quand même */ });
 }

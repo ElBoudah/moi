@@ -7,6 +7,7 @@ import { suiviSchema } from '../../js/modules/suivi/schema.js';
 import { pulsionSchema } from '../../js/modules/pulsion/schema.js';
 import { testsSchema } from '../../js/modules/tests/schema.js';
 import { settingsSchema } from '../../js/modules/settings/schema.js';
+import { challengeSchema } from '../../js/modules/challenge/schema.js';
 import * as suiviDay from '../../js/modules/suivi/views/day.js';
 import * as suiviData from '../../js/modules/suivi/views/data.js';
 import { memoryStorage, fakeNow, fakeId, resetFakes } from '../fixtures/helpers.mjs';
@@ -19,7 +20,7 @@ export function fakeRoot() {
 export function makeCtx() {
   resetFakes();
   const storage = memoryStorage();
-  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, tests: testsSchema };
+  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema };
   const stores = Object.fromEntries(Object.entries(schemas).map(([n, s]) => [n, new Store(storage, s, { now: fakeNow, makeId: fakeId })]));
   for (const s of Object.values(stores)) s.load();
   stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', clarity: 6, mood: 5, pleasure: 4, drive: 7 }; });
@@ -75,7 +76,7 @@ test('Réglages : apparence, LLM, une ligne par module, backup, version, section
   render(root, ctx);
   assert.equal((root.innerHTML.match(/data-theme-pref="/g) || []).length, 3);
   assert.match(root.innerHTML, /name="apiKey"/);
-  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 3); // suivi, pulsion, tests
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 4); // suivi, pulsion, challenge, tests
   assert.match(root.innerHTML, /data-cloud-restore/);
   assert.match(root.innerHTML, /cloud non configuré/);
   assert.match(root.innerHTML, /Moi 0\.0\.0/);
@@ -86,4 +87,29 @@ test('Réglages : apparence, LLM, une ligne par module, backup, version, section
   render(root, ctx);
   assert.match(root.innerHTML, /Ancienne app Suivi/);
   assert.match(root.innerHTML, /data-recover="tests"/);
+});
+
+test('Challenge : formulaire sans actif, écran actif avec bande, passé en lecture seule', async () => {
+  const { render } = await import('../../js/modules/challenge/views/home.js');
+  const { createChallenge, stopChallenge } = await import('../../js/modules/challenge/ops.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  assert.match(root.innerHTML, /name="title"/);
+  assert.match(root.innerHTML, /Aucun challenge passé/);
+  const c = createChallenge(ctx.stores.challenge, { title: 'Cardio <3', target: { perWeek: 3 }, days: 14 }, '2026-09-20');
+  render(root, ctx);
+  assert.match(root.innerHTML, /Cardio &lt;3/);
+  assert.match(root.innerHTML, /jour 1 sur 14/);
+  assert.match(root.innerHTML, /3 fois par semaine/);
+  assert.equal((root.innerHTML.match(/class="cell /g) || []).length, 14);
+  assert.match(root.innerHTML, /data-toggle="2026-09-20"/);
+  assert.match(root.innerHTML, /data-stop/);
+  stopChallenge(ctx.stores.challenge, c.id, '2026-09-20T12:00:00.000Z');
+  render(root, ctx);
+  assert.match(root.innerHTML, /data-go="id1"/);
+  assert.match(root.innerHTML, /0 faits \/ 14 jours/);
+  ctx.route = { tab: 'challenge', view: 'c', id: 'id1' };
+  render(root, ctx);
+  assert.match(root.innerHTML, /Cardio &lt;3/);
+  assert.equal(root.innerHTML.includes('data-toggle'), false);
 });

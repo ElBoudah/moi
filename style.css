@@ -142,3 +142,13 @@ input[type=time] { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monosp
 .spark { width: 100%; height: 56px; display: block; }
 .chart-grid { stroke: var(--line); stroke-width: 1; }
 .chart-empty { height: 56px; display: flex; align-items: center; font-size: 0.8rem; color: var(--muted); }
+
+/* Challenge : bande de cases */
+.strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(26px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.cell { display: block; aspect-ratio: 1; border-radius: 7px; border: 1px solid var(--line); background: var(--card2); padding: 0; }
+.cell.done { background: var(--accent); border-color: var(--accent); }
+.cell.today { border-color: var(--accent); border-width: 2px; }
+.cell.future, .cell.off { opacity: 0.35; }
+.btn-big { padding: 20px; font-size: 1.1rem; margin-bottom: 10px; }
+.btn-big.done { background: var(--accent-soft); color: var(--fg); }
+.crumbs { margin-bottom: 10px; }
