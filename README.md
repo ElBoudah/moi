@@ -1,7 +1,7 @@
 # Moi
 
 Une application personnelle, téléphone uniquement, qui regroupe des instruments indépendants :
-Suivi (sommeil et état du jour), Pulsion (protocole et actes), et bientôt Challenge, Tests, Mind, Rappel.
+Suivi (sommeil et état du jour), Pulsion (protocole et actes), Challenge (une activité à l'essai sur 14, 30 ou 60 jours), Tests (PVT-B et PHQ-8), et bientôt Mind et Rappel.
 Rien ne quitte le téléphone, hormis le backup chiffré vers un Gist privé et, pour Rappel, les appels au fournisseur LLM choisi.
 
 Design : `docs/superpowers/specs/2026-09-28-moi-fusion-design.md`

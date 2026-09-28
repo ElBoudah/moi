@@ -13,6 +13,10 @@ const ASSETS = [
   './js/modules/suivi/views/day.js', './js/modules/suivi/views/data.js',
   './js/modules/pulsion/schema.js', './js/modules/pulsion/queries.js', './js/modules/pulsion/ops.js', './js/modules/pulsion/views/home.js',
   './js/modules/tests/schema.js',
+  './js/modules/challenge/schema.js', './js/modules/challenge/queries.js', './js/modules/challenge/ops.js', './js/modules/challenge/views/home.js',
+  './js/modules/tests/queries.js', './js/modules/tests/ops.js', './js/modules/tests/stage.js',
+  './js/modules/tests/catalog/index.js', './js/modules/tests/catalog/pvt.js', './js/modules/tests/catalog/phq8.js',
+  './js/modules/tests/views/home.js', './js/modules/tests/views/run.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
 ];
 
