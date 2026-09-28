@@ -20,6 +20,9 @@ const ASSETS = [
   './js/modules/mind/schema.js', './js/modules/mind/queries.js', './js/modules/mind/ops.js',
   './js/modules/mind/views/helpers.js', './js/modules/mind/views/home.js', './js/modules/mind/views/subject.js',
   './js/modules/mind/views/search.js', './js/modules/mind/views/tree.js',
+  './js/modules/rappel/schema.js', './js/modules/rappel/fsrs.js', './js/modules/rappel/queries.js', './js/modules/rappel/parse.js',
+  './js/modules/rappel/prompts.js', './js/modules/rappel/llm.js', './js/modules/rappel/ops.js',
+  './js/modules/rappel/views/home.js', './js/modules/rappel/views/review.js', './js/modules/rappel/views/capture.js', './js/modules/rappel/views/library.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
 ];
 

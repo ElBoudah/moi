@@ -1,7 +1,7 @@
 # Moi
 
 Une application personnelle, téléphone uniquement, qui regroupe des instruments indépendants :
-Suivi (sommeil et état du jour), Pulsion (protocole et actes), Challenge (une activité à l'essai sur 14, 30 ou 60 jours), Tests (PVT-B et PHQ-8), Mind (poser ce qui occupe l'esprit), et bientôt Rappel.
+Suivi (sommeil et état du jour), Pulsion (protocole et actes), Challenge (une activité à l'essai sur 14, 30 ou 60 jours), Tests (PVT-B et PHQ-8), Mind (poser ce qui occupe l'esprit), Rappel (fiches de savoir révisées par rappel actif, questions et corrections par un LLM).
 Rien ne quitte le téléphone, hormis le backup chiffré vers un Gist privé et, pour Rappel, les appels au fournisseur LLM choisi.
 
 Design : `docs/superpowers/specs/2026-09-28-moi-fusion-design.md`
@@ -10,6 +10,8 @@ Design : `docs/superpowers/specs/2026-09-28-moi-fusion-design.md`
 
 Ouvrir https://elboudah.github.io/moi/ sur le téléphone, puis « Ajouter à l'écran d'accueil ».
 Au premier lancement sur un téléphone qui avait l'ancienne app Suivi, ses données sont reprises automatiquement.
+
+Rappel a besoin d'une clé API : Réglages → Fournisseur LLM (Gemini gratuit sur https://aistudio.google.com/app/apikey). La clé reste sur le téléphone ; seuls la fiche, la question et ta réponse partent vers le fournisseur.
 
 ## Développer
 
