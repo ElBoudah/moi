@@ -53,3 +53,17 @@ test('Suivi données : bloc 7 jours, quatre courbes avec repère d\'acte, bouton
   assert.match(root.innerHTML, /data-copy/);
   assert.match(root.innerHTML, /7 h 30/);
 });
+
+test('Pulsion : protocole, pression, checks, trois natures, courbe avec repère, derniers actes', async () => {
+  const { render } = await import('../../js/modules/pulsion/views/home.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  assert.match(root.innerHTML, /Protocole 10 minutes/);
+  assert.match(root.innerHTML, /data-range="urge"/);
+  assert.match(root.innerHTML, /data-chips="checksMin"/);
+  assert.equal((root.innerHTML.match(/data-nature="/g) || []).length, 3);
+  assert.equal((root.innerHTML.match(/<svg/g) || []).length, 1);
+  assert.match(root.innerHTML, /stroke="var\(--nat-contenu\)"/);
+  assert.match(root.innerHTML, /seul, avec contenu · fatigue/);
+  assert.match(root.innerHTML, /Copier le bilan pulsion/);
+});

@@ -12,6 +12,7 @@ import { pulsionSchema } from './modules/pulsion/schema.js';
 import { testsSchema } from './modules/tests/schema.js';
 import * as suiviDay from './modules/suivi/views/day.js';
 import * as suiviData from './modules/suivi/views/data.js';
+import * as pulsionHome from './modules/pulsion/views/home.js';
 
 export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, tests: testsSchema };
 
@@ -20,7 +21,7 @@ const soon = label => (root) => { root.innerHTML = `<p class="empty">${escapeHtm
 // Modules affichables : libellé, stores dont une notification rerend l'écran, vues par nom de route.
 const MODULES = {
   suivi: { label: 'Suivi', stores: ['suivi', 'pulsion'], views: { home: suiviDay.render, data: suiviData.render } },
-  pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: soon('Pulsion') } },                                    // T15
+  pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: pulsionHome.render } },
   settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'tests'], views: { home: soon('Réglages') } }, // T16
 };
 const TAB_ORDER = ['suivi', 'pulsion', 'challenge', 'tests', 'mind', 'rappel'].filter(t => MODULES[t]);
