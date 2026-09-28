@@ -1,5 +1,5 @@
 // Lectures pures sur le document Pulsion.
-import { addDays, frShort } from '../../core/dates.js';
+import { addDays, frShort, keyOf } from '../../core/dates.js';
 import { pack, pm } from '../../core/stats.js';
 import { windowKeys } from '../suivi/queries.js';
 import { NATURES, NATURE_ORDER } from './schema.js';
@@ -54,10 +54,15 @@ export function tagFrequencies({ events = [], episodes = [] }) {
   return [...f.values()].sort((a, b) => b.n - a.n);
 }
 
-// Répartition par heure locale : 24 cases.
-export function hourHistogram(list) {
+// Répartition par heure locale : 24 cases. Avec un ensemble de jours, on se limite à ces jours et on écarte
+// ce qui a été saisi un autre jour que le sien (acte antidaté) : son heure réelle est inconnue.
+export function hourHistogram(list, days = null) {
   const h = new Array(24).fill(0);
-  for (const x of list) h[new Date(x.ts).getHours()] += 1;
+  for (const x of list) {
+    const d = new Date(x.ts);
+    if (days && (!days.has(x.day) || keyOf(d) !== x.day)) continue;
+    h[d.getHours()] += 1;
+  }
   return h;
 }
 

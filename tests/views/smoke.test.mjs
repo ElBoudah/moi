@@ -29,7 +29,7 @@ export function makeCtx() {
   const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema, mind: mindSchema, rappel: rappelSchema };
   const stores = Object.fromEntries(Object.entries(schemas).map(([n, s]) => [n, new Store(storage, s, { now: fakeNow, makeId: fakeId })]));
   for (const s of Object.values(stores)) s.load();
-  stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', clarity: 6, mood: 5, pleasure: 4, drive: 7 }; });
+  stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', onsetMin: 0, awakeMin: 0, clarity: 6, mood: 5, pleasure: 4, drive: 7, note: null }; });
   stores.pulsion.commit(d => {
     d.days['2026-09-19'] = { urge: 4 };
     d.events.push({ id: 'e1', day: '2026-09-19', ts: '2026-09-19T22:00:00.000Z', nature: 'contenu', triggers: ['Fatigue'] });
@@ -80,11 +80,30 @@ test('Pulsion : protocole, épisode, pression, trois natures, courbe avec repèr
   assert.equal((root.innerHTML.match(/data-nature="/g) || []).length, 3);
   assert.equal((root.innerHTML.match(/<svg/g) || []).length, 1);
   assert.match(root.innerHTML, /stroke="var\(--nat-contenu\)"/);
-  assert.match(root.innerHTML, /fill="none"/); // point creux du jour d'épisode
+  assert.match(root.innerHTML, /<circle[^>]*fill="none"/); // point creux du jour d'épisode
   assert.match(root.innerHTML, /class="hours"/);
   assert.match(root.innerHTML, /seul, avec contenu · fatigue/);
   assert.match(root.innerHTML, /Image accidentelle/);
   assert.match(root.innerHTML, /Copier le bilan pulsion/);
+  assert.equal(root.innerHTML.includes('Tu décides à'), false);
+  // Un épisode qui vient d'être noté : la ligne « tu décides à » vient du document, pas d'un état d'écran.
+  ctx.stores.pulsion.commit(d => { d.episodes.push({ id: 'p2', day: ctx.today(), ts: new Date().toISOString(), intensity: 6, triggers: [], exposed: false }); });
+  render(root, ctx);
+  assert.match(root.innerHTML, /Tu décides à/);
+});
+
+test('Pulsion : enregistrer un acte referme le brouillon dès le redessin déclenché par le store', async () => {
+  const { render } = await import('../../js/modules/pulsion/views/home.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  root.onclick({ target: { closest: sel => (sel === '[data-nature]' ? { dataset: { nature: 'sans' } } : null) } });
+  assert.match(root.innerHTML, /data-save/);
+  let seen = null;
+  ctx.stores.pulsion.subscribe(() => { render(root, ctx); seen = root.innerHTML; });
+  root.onclick({ target: { closest: sel => (sel === '[data-save]' ? {} : null) } });
+  assert.equal(ctx.stores.pulsion.doc.events.length, 2);
+  assert.equal(seen.includes('data-save'), false);
+  assert.equal((root.innerHTML.match(/data-nature="/g) || []).length, 3);
 });
 
 test('Réglages : apparence, LLM, une ligne par module, backup, version, sections conditionnelles', async () => {

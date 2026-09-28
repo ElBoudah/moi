@@ -19,11 +19,12 @@ test('durMin gère le passage de minuit, bedShift recentre sur 18 h', () => {
 
 test('sleepMin et efficiency : temps au lit moins endormissement et réveils', () => {
   assert.equal(sleepMin(doc.days['2026-09-18']), 405);
-  assert.equal(sleepMin(doc.days['2026-09-19']), 410); // champs absents : rien à retrancher
+  assert.equal(sleepMin(doc.days['2026-09-19']), null); // endormissement et réveils non renseignés : nuit non mesurée
   assert.equal(sleepMin(doc.days['2026-09-20']), null);
   assert.equal(sleepMin({ bed: '23:00', wake: '07:00', onsetMin: 400, awakeMin: 400 }), 0);
   assert.equal(efficiency(doc.days['2026-09-18']), 0.9);
-  assert.equal(efficiency(doc.days['2026-09-19']), 1);
+  assert.equal(efficiency(doc.days['2026-09-19']), null);
+  assert.equal(efficiency({ bed: '23:00', wake: '07:00', onsetMin: 0, awakeMin: null }), 1); // un seul des deux suffit
   assert.equal(efficiency(doc.days['2026-09-20']), null);
 });
 
@@ -37,8 +38,8 @@ test('stats sur 7 jours', () => {
   assert.equal(s.logged, 3);
   assert.equal(s.nights, 2);
   assert.equal(s.dur.m, 430);
-  assert.equal(s.sleep.m, 407.5);
-  assert.equal(s.eff, 0.95);
+  assert.equal(s.sleep.m, 405);
+  assert.equal(s.eff, 0.9);
   assert.equal(Math.round(s.bedSD), 14);
   assert.deepEqual(s.series.clarity, [null, null, null, null, 6, 8, 7]);
   assert.equal(s.packs.clarity.n, 3);
@@ -53,11 +54,13 @@ test('bilan : sommeil avec efficacité, curseurs, notes datées', () => {
   assert.equal(lines.length, 10);
   assert.match(lines[0], /^SUIVI 14\/09 → 20\/09$/);
   assert.equal(lines[1], 'Jours loggés : 3/7');
-  assert.equal(lines[2], 'Sommeil : 2 nuits · au lit 7 h 10 ± 28 min · dormi 6 h 48 · efficacité 95 % · régularité du coucher ± 14 min');
+  assert.equal(lines[2], 'Sommeil : 2 nuits · au lit 7 h 10 ± 28 min · dormi 6 h 45 · efficacité 90 % · régularité du coucher ± 14 min');
   assert.match(lines[3], /^Clarté : 7 ± 1\/10 · variation j\/j 1,5$/);
   assert.match(lines[6], /^Motivation : 5 ± 1,4\/10 · variation j\/j 2$/);
   assert.equal(lines[7], 'Notes :');
   assert.equal(lines[8], '  18/09 : Soirée calme');
   assert.equal(lines[9], '  20/09 : Mal dormi <3');
   assert.equal(bilan({ version: 2, days: {} }, '2026-09-20').split('\n').length, 7);
+  const multi = { version: 2, days: { '2026-09-20': { ...doc.days['2026-09-20'], note: 'ligne 1\nligne 2' } } };
+  assert.equal(bilan(multi, '2026-09-20').split('\n').at(-1), '  20/09 : ligne 1 ligne 2');
 });

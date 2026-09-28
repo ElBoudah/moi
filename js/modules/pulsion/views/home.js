@@ -3,16 +3,15 @@ import { addDays, frShort, hhmm } from '../../../core/dates.js';
 import { pm, fmt } from '../../../core/stats.js';
 import { sparkline } from '../../../core/chart.js';
 import { sliderHtml, dayNavHtml, escapeHtml, copyText, openSheet, closeSheet } from '../../../core/ui.js';
-import { NATURES, NATURE_ORDER, URGE_ANCHORS, emptyDay } from '../schema.js';
+import { NATURES, NATURE_ORDER, URGE_ANCHORS, emptyDay, normTags } from '../schema.js';
 import { stats, marks, episodeDays, lastEvents, lastEpisodes, tagFrequencies, hourHistogram, bilan } from '../queries.js';
 import { setDayFieldSoon, addEvent, addEpisode } from '../ops.js';
 import { eventMarks } from '../../suivi/views/data.js';
 
-// État d'écran : jour sélectionné, fenêtre des courbes, acte en cours de saisie, dernier épisode saisi.
+// État d'écran : jour sélectionné, fenêtre des courbes, acte en cours de saisie.
 let selDay = null;
 let win = 14;
 let draft = null; // { nature, triggers, day }
-let lastEpisodeTs = null;
 
 const DECIDE_AFTER_MS = 10 * 60 * 1000;
 const dayOf = (store, key) => ({ ...emptyDay(), ...(store.doc.days[key] ?? {}) });
@@ -34,13 +33,11 @@ function toggleTag(list, tag) {
 
 function askTag() {
   const r = prompt('Déclencheur ? (ex : fatigue, au lit, image accidentelle)');
-  if (r === null) return null;
-  const t = r.trim().replace(/\s+/g, ' ').slice(0, 30);
-  return t || null;
+  return r === null ? null : (normTags([r])[0] ?? null);
 }
 
-function hoursHtml(list, color) {
-  const h = hourHistogram(list);
+function hoursHtml(list, days, color) {
+  const h = hourHistogram(list, days);
   const max = Math.max(1, ...h);
   return `<div class="hours">${h.map((n, i) => `<div class="hour" title="${i} h : ${n}"><div class="bar" style="height:${Math.round((n / max) * 100)}%;background:${color}"></div></div>`).join('')}</div>`;
 }
@@ -103,8 +100,7 @@ function openEpisodeSheet(store, ctx) {
     if (e.target.closest('[data-cancel]')) return closeSheet();
     if (e.target.closest('[data-save-episode]')) {
       try {
-        const p = addEpisode(store, { intensity, triggers: selected, exposed }, ctx.today());
-        lastEpisodeTs = p.ts;
+        addEpisode(store, { intensity, triggers: selected, exposed }, ctx.today());
         closeSheet();
         ctx.notice('Noté. Tu décides dans 10 minutes, pas maintenant.');
       } catch (err) { ctx.notice(err.message); }
@@ -123,8 +119,11 @@ export function render(root, ctx) {
   const mk = eventMarks(s.keys, marks(doc));
   const epDays = episodeDays(doc);
   const hollow = s.keys.map((k, i) => (epDays.has(k) ? { i, color: 'var(--accent)' } : null)).filter(Boolean);
-  const decideAt = lastEpisodeTs && Date.now() - new Date(lastEpisodeTs).getTime() < DECIDE_AFTER_MS
-    ? hhmm(new Date(new Date(lastEpisodeTs).getTime() + DECIDE_AFTER_MS).toISOString()) : null;
+  // « Tu décides à » : lu dans le document, donc juste dès le redessin qui suit l'enregistrement, et après un rechargement.
+  const lastTs = lastEpisodes(doc, 1)[0]?.ts;
+  const decideAt = lastTs && Date.now() - new Date(lastTs).getTime() < DECIDE_AFTER_MS
+    ? hhmm(new Date(new Date(lastTs).getTime() + DECIDE_AFTER_MS).toISOString()) : null;
+  const winDays = new Set(s.keys);
 
   root.innerHTML = `
     <div class="card protocol">
@@ -154,10 +153,10 @@ export function render(root, ctx) {
       ${sparkline({ values: s.series.urge, color: 'var(--accent)', marks: mk, hollowDots: hollow })}
       <div class="lg">${NATURE_ORDER.map(n => `<span><i style="background:${NATURES[n].css}"></i>${escapeHtml(NATURES[n].label)}</span>`).join('')}<span><i class="hollow"></i>épisode</span></div>
       <div class="sep"></div>
-      <div class="tiny" style="margin-bottom:4px">Épisodes par heure</div>
-      ${hoursHtml(doc.episodes ?? [], 'var(--accent)')}
-      <div class="tiny" style="margin:8px 0 4px">Actes par heure</div>
-      ${hoursHtml(doc.events, 'var(--nat-contenu)')}
+      <div class="tiny" style="margin-bottom:4px">Épisodes par heure, sur ${win} j</div>
+      ${hoursHtml(doc.episodes ?? [], winDays, 'var(--accent)')}
+      <div class="tiny" style="margin:8px 0 4px">Actes par heure, sur ${win} j (saisis le jour même)</div>
+      ${hoursHtml(doc.events, winDays, 'var(--nat-contenu)')}
       <div class="hours-axis tiny"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
     </div>
     <div class="card">
@@ -190,14 +189,16 @@ export function render(root, ctx) {
     if (dayBtn) { draft.day = dayBtn.dataset.day; return render(root, ctx); }
     if (e.target.closest('[data-cancel]')) { draft = null; return render(root, ctx); }
     if (e.target.closest('[data-save]')) {
+      // Le brouillon est vidé AVANT l'écriture : le store notifie pendant addEvent et l'écran se redessine à ce moment-là.
+      const pending = draft;
+      draft = null;
       try {
-        const ev = addEvent(store, draft, t);
-        draft = null;
+        const ev = addEvent(store, pending, t);
         ctx.notice(ev.nature === 'contenu'
           ? "Enregistré comme donnée. Pas de procès. Prochaine action : protéger le sommeil de ce soir — coucher à l'heure prévue, téléphone hors chambre."
           : 'Enregistré.');
-      } catch (err) { ctx.notice(err.message); }
-      return; // le store notifie, l'écran se rerend
+      } catch (err) { draft = pending; ctx.notice(err.message); }
+      return render(root, ctx);
     }
     const w = e.target.closest('[data-win]');
     if (w) { win = Number(w.dataset.win); return render(root, ctx); }

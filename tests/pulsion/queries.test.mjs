@@ -54,6 +54,12 @@ test('hourHistogram compte par heure locale', () => {
   assert.equal(h[21], 2);
   assert.equal(h.reduce((a, b) => a + b, 0), 4);
   assert.equal(hourHistogram(doc.episodes)[23], 2);
+  // Borné à une fenêtre de jours : un acte antidaté (jour ≠ date locale de saisie) n'a pas d'heure connue, on l'écarte.
+  const backdated = { id: 'z', day: '2026-09-19', ts: local(2026, 9, 20, 9), nature: 'sans', triggers: [] };
+  const win = new Set(['2026-09-19', '2026-09-20']);
+  const hw = hourHistogram([...doc.events, backdated], win);
+  assert.equal(hw.reduce((a, b) => a + b, 0), 3); // a, b, c ; d hors fenêtre ; z antidaté
+  assert.equal(hw[9], 0);
 });
 
 test('bilan pulsion : pression, épisodes, déclencheurs, actes', () => {

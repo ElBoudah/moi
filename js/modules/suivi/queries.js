@@ -11,17 +11,19 @@ export function durMin(day) {
 }
 
 // Temps dormi = temps au lit moins endormissement moins réveils nocturnes.
+// Sans aucun des deux, la nuit n'est pas mesurée : null, jamais « 100 % ».
 export function sleepMin(day) {
   const d = durMin(day);
   if (d === null) return null;
+  if (day.onsetMin == null && day.awakeMin == null) return null;
   return Math.max(0, d - (day.onsetMin ?? 0) - (day.awakeMin ?? 0));
 }
 
 // Efficacité du sommeil : la variable centrale des approches comportementales de l'insomnie.
 export function efficiency(day) {
-  const d = durMin(day);
-  if (d === null || d === 0) return null;
-  return sleepMin(day) / d;
+  const d = durMin(day), slept = sleepMin(day);
+  if (d === null || d === 0 || slept === null) return null;
+  return slept / d;
 }
 
 // Coucher recentré sur 18 h, sinon 23 h 50 et 00 h 10 seraient à 23 h d'écart au lieu de 20 min.
@@ -66,7 +68,7 @@ export function notesLines(doc, keys) {
   const out = [];
   for (const k of keys) {
     const d = doc.days[k];
-    if (d && d.note) out.push(`  ${frShort(k)} : ${d.note}`);
+    if (d && d.note) out.push(`  ${frShort(k)} : ${d.note.replace(/\s+/g, ' ')}`);
   }
   return out.length ? ['Notes :', ...out] : [];
 }

@@ -60,11 +60,13 @@ export function render(root, ctx) {
     }
     const chip = e.target.closest('[data-chips] [data-chip]');
     if (!chip) return;
+    flushPending(); // une note en attente doit être écrite avant le redessin
     const field = chip.closest('[data-chips]').dataset.chips;
     let v = chip.dataset.chip;
-    if (v === 'other') { const r = prompt('Durée en minutes ?', day[field] ?? ''); if (r === null) return; v = r; }
-    const n = parseInt(v, 10);
-    try { setDayField(store, selDay, field, Number.isInteger(n) ? n : null); } catch (err) { return ctx.notice(err.message); }
+    if (v === 'other') { const r = prompt('Durée en minutes ?', day[field] ?? ''); if (r === null) return; v = r.trim(); }
+    const n = v === '' ? null : Number(v);
+    if (n !== null && !Number.isInteger(n)) return ctx.notice('Durée invalide.');
+    try { setDayField(store, selDay, field, n); } catch (err) { return ctx.notice(err.message); }
     render(root, ctx);
   };
   root.oninput = e => {
