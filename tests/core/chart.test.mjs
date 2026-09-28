@@ -33,3 +33,9 @@ test('échelle automatique : valeurs plates et valeur unique sans NaN', () => {
     assert.equal(h.includes('chart-grid'), false);
   }
 });
+
+test('points creux (hollowDots) : cercles sans remplissage, hors bornes ignorés', () => {
+  const h = sparkline({ values: [2, 4, 6], hollowDots: [{ i: 1, color: 'teal' }, { i: 9, color: 'red' }] });
+  assert.equal((h.match(/fill="none" stroke="teal"/g) || []).length, 1);
+  assert.equal(h.includes('stroke="red"'), false);
+});

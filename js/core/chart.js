@@ -2,7 +2,7 @@
 // des repères verticaux. Rendu en chaîne, aucun DOM.
 const num = v => v !== null && v !== undefined && Number.isFinite(v);
 
-export function sparkline({ values, min = 0, max = 10, marks = [], color = 'var(--accent)', width = 280, height = 56, pad = 6, grid = null, dots = null, emptyText = 'pas encore de données' }) {
+export function sparkline({ values, min = 0, max = 10, marks = [], hollowDots = [], color = 'var(--accent)', width = 280, height = 56, pad = 6, grid = null, dots = null, emptyText = 'pas encore de données' }) {
   const vals = values.filter(num);
   if (!vals.length) return `<div class="chart-empty">${emptyText}</div>`;
   const auto = min === null || max === null;
@@ -31,5 +31,10 @@ export function sparkline({ values, min = 0, max = 10, marks = [], color = 'var(
     const X = x(m.i).toFixed(1);
     return `<line x1="${X}" x2="${X}" y1="${pad}" y2="${height - pad}" stroke="${m.color}" stroke-width="1.6" opacity=".85"${m.dashed ? ' stroke-dasharray="2 2"' : ''}/>`;
   }).join('');
-  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${gridSvg}${marksSvg}<path d="${path.trim()}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${dotsSvg}</svg>`;
+  // Points creux : un jour marqué sans valeur sur la courbe (épisode sans acte, par exemple). Posés en bas si la valeur manque.
+  const hollowSvg = hollowDots.filter(m => m.i >= 0 && m.i < n).map(m => {
+    const v = num(values[m.i]) ? values[m.i] : lo;
+    return `<circle cx="${x(m.i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.2" fill="none" stroke="${m.color}" stroke-width="1.6"/>`;
+  }).join('');
+  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${gridSvg}${marksSvg}${hollowSvg}<path d="${path.trim()}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${dotsSvg}</svg>`;
 }

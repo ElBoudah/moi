@@ -31,8 +31,9 @@ export function makeCtx() {
   for (const s of Object.values(stores)) s.load();
   stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', clarity: 6, mood: 5, pleasure: 4, drive: 7 }; });
   stores.pulsion.commit(d => {
-    d.days['2026-09-19'] = { urge: 4, checksMin: 10 };
-    d.events.push({ id: 'e1', day: '2026-09-19', ts: '2026-09-19T22:00:00.000Z', nature: 'contenu', trigger: 'Fatigue' });
+    d.days['2026-09-19'] = { urge: 4 };
+    d.events.push({ id: 'e1', day: '2026-09-19', ts: '2026-09-19T22:00:00.000Z', nature: 'contenu', triggers: ['Fatigue'] });
+    d.episodes.push({ id: 'p1', day: '2026-09-18', ts: '2026-09-18T18:00:00.000Z', intensity: 5, triggers: ['Image accidentelle'], exposed: true });
   });
   const notices = [];
   return {
@@ -68,17 +69,21 @@ test('Suivi données : bloc 7 jours, quatre courbes avec repère d\'acte, bouton
   assert.match(root.innerHTML, /efficacité 100 %/);
 });
 
-test('Pulsion : protocole, pression, checks, trois natures, courbe avec repère, derniers actes', async () => {
+test('Pulsion : protocole, épisode, pression, trois natures, courbe avec repère et point creux, heures, derniers actes', async () => {
   const { render } = await import('../../js/modules/pulsion/views/home.js');
   const root = fakeRoot(), ctx = makeCtx();
   render(root, ctx);
   assert.match(root.innerHTML, /Protocole 10 minutes/);
+  assert.match(root.innerHTML, /data-episode/);
   assert.match(root.innerHTML, /data-range="urge"/);
-  assert.match(root.innerHTML, /data-chips="checksMin"/);
+  assert.equal(root.innerHTML.includes('checksMin'), false);
   assert.equal((root.innerHTML.match(/data-nature="/g) || []).length, 3);
   assert.equal((root.innerHTML.match(/<svg/g) || []).length, 1);
   assert.match(root.innerHTML, /stroke="var\(--nat-contenu\)"/);
+  assert.match(root.innerHTML, /fill="none"/); // point creux du jour d'épisode
+  assert.match(root.innerHTML, /class="hours"/);
   assert.match(root.innerHTML, /seul, avec contenu · fatigue/);
+  assert.match(root.innerHTML, /Image accidentelle/);
   assert.match(root.innerHTML, /Copier le bilan pulsion/);
 });
 

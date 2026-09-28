@@ -24,13 +24,15 @@ export function convertLegacy(suiviRaw, testsRaw) {
   const out = { suivi: null, pulsion: null, tests: null };
   if (isObj(suiviRaw)) {
     const suivi = { version: 1, days: {} };
-    const pulsion = { version: 1, days: {}, events: [] };
+    const pulsion = { version: 2, days: {}, events: [], episodes: [] };
     for (const [k, d] of Object.entries(isObj(suiviRaw.days) ? suiviRaw.days : {})) {
       if (!isDayKey(k) || !isObj(d)) continue;
       const sd = { bed: time(d.bed), wake: time(d.wake), clarity: slider(d.clarity), mood: slider(d.mood), pleasure: null, drive: slider(d.elan) };
       if (Object.values(sd).some(v => v !== null)) suivi.days[k] = sd;
-      const pd = { urge: slider(d.urge), checksMin: minutes(d.checksMin) };
-      if (pd.urge !== null || pd.checksMin !== null) pulsion.days[k] = pd;
+      const pd = { urge: slider(d.urge) };
+      const checks = minutes(d.checksMin);
+      if (checks !== null) pd.checksMin = checks; // héritage : conservé dans le fichier, plus saisi
+      if (pd.urge !== null || checks !== null) pulsion.days[k] = pd;
     }
     for (const e of Array.isArray(suiviRaw.events) ? suiviRaw.events : []) {
       if (!isObj(e)) continue;
@@ -41,7 +43,7 @@ export function convertLegacy(suiviRaw, testsRaw) {
         day: e.day,
         ts: typeof e.ts === 'string' ? e.ts : `${e.day}T12:00:00.000Z`,
         nature,
-        trigger: typeof e.trigger === 'string' && e.trigger ? e.trigger : null,
+        triggers: typeof e.trigger === 'string' && e.trigger ? [e.trigger] : [],
       });
     }
     out.suivi = suivi;

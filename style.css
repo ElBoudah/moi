@@ -240,3 +240,9 @@ h1.title span { overflow-wrap: anywhere; }
 .verdicts .chip.on.g4 { color: var(--c-mood); border-color: var(--c-mood); background: transparent; }
 .working { text-align: center; padding: 40px 0; color: var(--muted); }
 .cnt { text-align: right; margin-top: 4px; }
+/* Pulsion : répartition horaire et point creux */
+.hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 36px; align-items: end; }
+.hour { height: 100%; display: flex; align-items: flex-end; background: var(--card2); border-radius: 2px; }
+.hour .bar { width: 100%; border-radius: 2px; min-height: 0; }
+.hours-axis { display: flex; justify-content: space-between; margin-top: 2px; }
+i.hollow { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--accent); margin-right: 5px; box-sizing: border-box; }

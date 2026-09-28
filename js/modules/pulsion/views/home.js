@@ -1,32 +1,60 @@
-// Pulsion : protocole, pression et checks du jour, enregistrement d'un acte daté, données du module.
+// Pulsion : protocole et envie sur le vif, pression du jour, actes datés avec tags libres, données du module.
 import { addDays, frShort, hhmm } from '../../../core/dates.js';
 import { pm, fmt } from '../../../core/stats.js';
 import { sparkline } from '../../../core/chart.js';
-import { sliderHtml, chipsHtml, dayNavHtml, escapeHtml, copyText } from '../../../core/ui.js';
-import { NATURES, NATURE_ORDER, TRIGGERS, CHECK_PRESETS, URGE_ANCHORS, emptyDay } from '../schema.js';
-import { stats, marks, lastEvents, bilan } from '../queries.js';
-import { setDayField, setDayFieldSoon, addEvent } from '../ops.js';
+import { sliderHtml, dayNavHtml, escapeHtml, copyText, openSheet, closeSheet } from '../../../core/ui.js';
+import { NATURES, NATURE_ORDER, URGE_ANCHORS, emptyDay } from '../schema.js';
+import { stats, marks, episodeDays, lastEvents, lastEpisodes, tagFrequencies, hourHistogram, bilan } from '../queries.js';
+import { setDayFieldSoon, addEvent, addEpisode } from '../ops.js';
 import { eventMarks } from '../../suivi/views/data.js';
 
-// État d'écran : jour sélectionné, fenêtre des courbes, acte en cours de saisie.
+// État d'écran : jour sélectionné, fenêtre des courbes, acte en cours de saisie, dernier épisode saisi.
 let selDay = null;
 let win = 14;
-let draft = null; // { nature, trigger, day }
+let draft = null; // { nature, triggers, day }
+let lastEpisodeTs = null;
 
+const DECIDE_AFTER_MS = 10 * 60 * 1000;
 const dayOf = (store, key) => ({ ...emptyDay(), ...(store.doc.days[key] ?? {}) });
 const st = (k, v) => `<div class="st"><span class="k">${k}</span><span class="v mono">${v}</span></div>`;
+const lower = t => escapeHtml(t.toLowerCase());
 
-function draftHtml(t) {
+// Tags libres : les plus fréquents de l'historique en suggestion, ceux choisis toujours visibles, un + pour créer.
+function tagChips(doc, selected) {
+  const top = tagFrequencies(doc).slice(0, 8).map(t => t.tag);
+  const shown = [...top];
+  for (const t of selected) if (!shown.some(x => x.toLowerCase() === t.toLowerCase())) shown.push(t);
+  return `<div class="chips" data-tags>${shown.map(t => `<button type="button" class="chip${selected.some(x => x.toLowerCase() === t.toLowerCase()) ? ' on' : ''}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}<button type="button" class="chip" data-tag-add>+</button></div>`;
+}
+
+function toggleTag(list, tag) {
+  const i = list.findIndex(x => x.toLowerCase() === tag.toLowerCase());
+  if (i >= 0) list.splice(i, 1); else list.push(tag);
+}
+
+function askTag() {
+  const r = prompt('Déclencheur ? (ex : fatigue, au lit, image accidentelle)');
+  if (r === null) return null;
+  const t = r.trim().replace(/\s+/g, ' ').slice(0, 30);
+  return t || null;
+}
+
+function hoursHtml(list, color) {
+  const h = hourHistogram(list);
+  const max = Math.max(1, ...h);
+  return `<div class="hours">${h.map((n, i) => `<div class="hour" title="${i} h : ${n}"><div class="bar" style="height:${Math.round((n / max) * 100)}%;background:${color}"></div></div>`).join('')}</div>`;
+}
+
+function draftHtml(doc, t) {
   if (!draft) {
     return `<div class="stack">${NATURE_ORDER.map(n => `<button type="button" class="btn btn-nat" data-nature="${n}">
       <span>${escapeHtml(NATURES[n].label)}</span><span class="dot" style="background:${NATURES[n].css}"></span></button>`).join('')}</div>`;
   }
-  const needTrigger = draft.nature !== 'partenaire';
+  const withTags = draft.nature !== 'partenaire';
   const yesterday = addDays(t, -1);
   return `<div class="card">
     <div class="srow"><span>${escapeHtml(NATURES[draft.nature].label)}</span><span class="dot" style="background:${NATURES[draft.nature].css}"></span></div>
-    ${needTrigger ? `<div class="tiny">Déclencheur principal ?</div>
-      <div class="chips">${TRIGGERS.map(tr => `<button type="button" class="chip${draft.trigger === tr ? ' on' : ''}" data-trigger="${escapeHtml(tr)}">${escapeHtml(tr)}</button>`).join('')}</div>` : ''}
+    ${withTags ? `<div class="tiny">Déclencheurs, si tu les vois</div>${tagChips(doc, draft.triggers)}` : ''}
     <div class="tiny" style="margin-top:12px">Quel jour ?</div>
     <div class="chips pick">
       <button type="button" class="chip${draft.day === t ? ' on' : ''}" data-day="${t}">Aujourd'hui</button>
@@ -34,7 +62,7 @@ function draftHtml(t) {
       <input type="date" class="chip${draft.day !== t && draft.day !== yesterday ? ' on' : ''}" data-day-input max="${t}" value="${draft.day}" aria-label="Autre date">
     </div>
     <div class="rowbtns">
-      <button type="button" class="btn" data-save${needTrigger && !draft.trigger ? ' disabled' : ''}>Enregistrer</button>
+      <button type="button" class="btn" data-save>Enregistrer</button>
       <button type="button" class="btn btn-ghost" data-cancel>Annuler</button>
     </div>
   </div>`;
@@ -43,7 +71,45 @@ function draftHtml(t) {
 function evList(doc) {
   const a = lastEvents(doc, 8);
   if (!a.length) return '<span class="tiny">aucun</span>';
-  return a.map(e => `<i style="background:${NATURES[e.nature].css}"></i>${frShort(e.day)} <span class="tiny">${escapeHtml(NATURES[e.nature].label.toLowerCase())}${e.trigger ? ' · ' + escapeHtml(e.trigger.toLowerCase()) : ''} · saisi ${frShort(e.ts.slice(0, 10))} ${hhmm(e.ts)}</span>`).join('<br>');
+  return a.map(e => `<i style="background:${NATURES[e.nature].css}"></i>${frShort(e.day)} <span class="tiny">${lower(NATURES[e.nature].label)}${e.triggers?.length ? ' · ' + e.triggers.map(lower).join(', ') : ''} · saisi ${escapeHtml(hhmm(e.ts))}</span>`).join('<br>');
+}
+
+function episodeList(doc) {
+  const a = lastEpisodes(doc, 8);
+  if (!a.length) return '<span class="tiny">aucun</span>';
+  return a.map(p => `<i class="hollow"></i>${frShort(p.day)} ${escapeHtml(hhmm(p.ts))} <span class="tiny">intensité ${p.intensity}${p.exposed ? ' · contenu vu' : ''}${p.triggers.length ? ' · ' + p.triggers.map(escapeHtml).join(', ') : ''}</span>`).join('<br>');
+}
+
+function openEpisodeSheet(store, ctx) {
+  const selected = [];
+  let exposed = false, intensity = 5;
+  const sheet = openSheet(`
+    <h2>Envie forte maintenant</h2>
+    ${sliderHtml({ field: 'intensity', label: 'Intensité', value: 5, anchors: URGE_ANCHORS })}
+    <div class="tiny" style="margin-top:10px">Déclencheurs, si tu les vois</div>
+    <div data-tags-wrap>${tagChips(store.doc, selected)}</div>
+    <label class="row" style="border:0"><input type="checkbox" class="check" data-exposed> <span class="row-main">Contenu vu</span></label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-text" data-cancel>Annuler</button>
+      <button type="button" class="btn" data-save-episode>Enregistrer</button>
+    </div>
+  `);
+  sheet.oninput = e => { const r = e.target.closest('[data-range]'); if (r) { intensity = Number(r.value); sheet.querySelector('[data-out="intensity"]').textContent = intensity; } };
+  sheet.onchange = e => { const x = e.target.closest('[data-exposed]'); if (x) exposed = x.checked; };
+  sheet.onclick = e => {
+    const tag = e.target.closest('[data-tag]');
+    if (tag) { toggleTag(selected, tag.dataset.tag); sheet.querySelector('[data-tags-wrap]').innerHTML = tagChips(store.doc, selected); return; }
+    if (e.target.closest('[data-tag-add]')) { const t = askTag(); if (t) { toggleTag(selected, t); sheet.querySelector('[data-tags-wrap]').innerHTML = tagChips(store.doc, selected); } return; }
+    if (e.target.closest('[data-cancel]')) return closeSheet();
+    if (e.target.closest('[data-save-episode]')) {
+      try {
+        const p = addEpisode(store, { intensity, triggers: selected, exposed }, ctx.today());
+        lastEpisodeTs = p.ts;
+        closeSheet();
+        ctx.notice('Noté. Tu décides dans 10 minutes, pas maintenant.');
+      } catch (err) { ctx.notice(err.message); }
+    }
+  };
 }
 
 export function render(root, ctx) {
@@ -55,6 +121,10 @@ export function render(root, ctx) {
   const s7 = stats(doc, 7, t);
   const s = stats(doc, win, t);
   const mk = eventMarks(s.keys, marks(doc));
+  const epDays = episodeDays(doc);
+  const hollow = s.keys.map((k, i) => (epDays.has(k) ? { i, color: 'var(--accent)' } : null)).filter(Boolean);
+  const decideAt = lastEpisodeTs && Date.now() - new Date(lastEpisodeTs).getTime() < DECIDE_AFTER_MS
+    ? hhmm(new Date(new Date(lastEpisodeTs).getTime() + DECIDE_AFTER_MS).toISOString()) : null;
 
   root.innerHTML = `
     <div class="card protocol">
@@ -64,33 +134,41 @@ export function render(root, ctx) {
         <li>2. Une action physique tout de suite : sortir marcher, pompes, douche, atelier.</li>
         <li>3. S'il y a acte, tu le logges ci-dessous. Sinon, rien à faire.</li>
       </ol>
+      ${decideAt ? `<p class="tiny" style="margin-top:8px">Épisode noté. Tu décides à <span class="mono">${decideAt}</span>.</p>` : ''}
+      <button type="button" class="btn" style="margin-top:12px" data-episode>Envie forte maintenant</button>
       <p class="note">« Contenu » = tout support pornographique ou érotique, quel que soit le site, l'app ou le format (vidéo, images, reddit, réseaux). Définition fixée à froid — pas renégociable sur le moment.</p>
     </div>
 
-    <div class="label">Aujourd'hui</div>
+    <div class="label">Pression du jour</div>
     ${dayNavHtml(selDay, t)}
     <div class="card">${sliderHtml({ field: 'urge', label: "Pression de l'envie", value: day.urge, anchors: URGE_ANCHORS })}</div>
-    <div class="card">
-      <div class="srow"><span>Checks — contenu vu, sans acte</span><span class="mono" data-out="checksMin">${day.checksMin == null ? '—' : day.checksMin + ' min'}</span></div>
-      ${chipsHtml({ field: 'checksMin', options: CHECK_PRESETS, value: day.checksMin })}
-    </div>
 
     <div class="label">Enregistrer un acte</div>
-    ${draftHtml(t)}
+    ${draftHtml(doc, t)}
     <p class="note">Aucun compteur, aucune remise à zéro : on enregistre une date et une nature, rien d'autre. Ce qui compte se lit sur les courbes, dans les jours qui suivent.</p>
 
     <div class="label">Données</div>
     <div class="card">
       <div class="chips win">${[14, 30, 90].map(n => `<button type="button" class="chip${win === n ? ' on' : ''}" data-win="${n}">${n} j</button>`).join('')}</div>
       <div class="srow small"><span class="tiny">Pression de l'envie</span><span class="mono tiny">${pm(s.urge.m, s.urge.sd, '/10')} · var ${fmt(s.urge.v)}</span></div>
-      ${sparkline({ values: s.series.urge, color: 'var(--accent)', marks: mk })}
-      <div class="lg">${NATURE_ORDER.map(n => `<span><i style="background:${NATURES[n].css}"></i>${escapeHtml(NATURES[n].label)}</span>`).join('')}</div>
+      ${sparkline({ values: s.series.urge, color: 'var(--accent)', marks: mk, hollowDots: hollow })}
+      <div class="lg">${NATURE_ORDER.map(n => `<span><i style="background:${NATURES[n].css}"></i>${escapeHtml(NATURES[n].label)}</span>`).join('')}<span><i class="hollow"></i>épisode</span></div>
+      <div class="sep"></div>
+      <div class="tiny" style="margin-bottom:4px">Épisodes par heure</div>
+      ${hoursHtml(doc.episodes ?? [], 'var(--accent)')}
+      <div class="tiny" style="margin:8px 0 4px">Actes par heure</div>
+      ${hoursHtml(doc.events, 'var(--nat-contenu)')}
+      <div class="hours-axis tiny"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
     </div>
     <div class="card">
       ${st('7 derniers jours', `pression ${pm(s7.urge.m, s7.urge.sd, '/10')} · soirs ≥4 : ${s7.evenings4}`)}
-      ${st('Checks', `${s7.checksVol} min · ${s7.checksDays} j`)}
+      ${st('Épisodes', s7.episodes.length ? `${s7.episodes.length} · dont ${s7.exposed} avec contenu · intensité ${pm(s7.intensity.m, s7.intensity.sd, '/10')}` : '—')}
       ${NATURE_ORDER.map(n => st(escapeHtml(NATURES[n].label), s7.byNature[n].length
-        ? s7.byNature[n].map(e => frShort(e.day) + (e.trigger ? ' · ' + escapeHtml(e.trigger.toLowerCase()) : '')).join('<br>') : '—')).join('')}
+        ? s7.byNature[n].map(e => frShort(e.day) + (e.triggers?.length ? ' · ' + e.triggers.map(lower).join(', ') : '')).join('<br>') : '—')).join('')}
+    </div>
+    <div class="card">
+      <div class="tiny" style="margin-bottom:6px">Derniers épisodes</div>
+      <div class="evlist">${episodeList(doc)}</div>
     </div>
     <div class="card">
       <div class="tiny" style="margin-bottom:6px">Derniers actes</div>
@@ -100,21 +178,14 @@ export function render(root, ctx) {
   `;
 
   root.onclick = e => {
+    if (e.target.closest('[data-episode]')) return openEpisodeSheet(store, ctx);
     const nav = e.target.closest('[data-daynav]');
     if (nav) { if (!nav.disabled) { const next = addDays(selDay, Number(nav.dataset.daynav)); if (next <= t) { selDay = next; render(root, ctx); } } return; }
-    const chip = e.target.closest('[data-chips="checksMin"] [data-chip]');
-    if (chip) {
-      let v = chip.dataset.chip;
-      if (v === 'other') { const r = prompt('Durée en minutes ?', day.checksMin ?? ''); if (r === null) return; v = r; }
-      const n = parseInt(v, 10);
-      if (!Number.isInteger(n) || n < 0 || n > 1440) { ctx.notice('Durée invalide.'); return; }
-      setDayField(store, selDay, 'checksMin', n);
-      return render(root, ctx);
-    }
     const nat = e.target.closest('[data-nature]');
-    if (nat) { draft = { nature: nat.dataset.nature, trigger: null, day: t }; return render(root, ctx); }
-    const trig = e.target.closest('[data-trigger]');
-    if (trig) { draft.trigger = trig.dataset.trigger; return render(root, ctx); }
+    if (nat) { draft = { nature: nat.dataset.nature, triggers: [], day: t }; return render(root, ctx); }
+    const tag = e.target.closest('[data-tag]');
+    if (tag && draft) { toggleTag(draft.triggers, tag.dataset.tag); return render(root, ctx); }
+    if (e.target.closest('[data-tag-add]') && draft) { const nt = askTag(); if (nt) toggleTag(draft.triggers, nt); return render(root, ctx); }
     const dayBtn = e.target.closest('[data-day]');
     if (dayBtn) { draft.day = dayBtn.dataset.day; return render(root, ctx); }
     if (e.target.closest('[data-cancel]')) { draft = null; return render(root, ctx); }
@@ -141,6 +212,6 @@ export function render(root, ctx) {
   };
   root.onchange = e => {
     const d = e.target.closest('[data-day-input]');
-    if (d && d.value && d.value <= t) { draft.day = d.value; render(root, ctx); }
+    if (d && draft && d.value && d.value <= t) { draft.day = d.value; render(root, ctx); }
   };
 }

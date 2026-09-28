@@ -44,9 +44,11 @@ test('convertLegacy sépare Suivi et Pulsion, ignore ce qui est invalide', () =>
   assert.equal(suivi.days['2026-09-19'], undefined); // sleepQ et cardio seuls : rien à reprendre
   assert.deepEqual(suivi.days['2026-09-20'], { bed: null, wake: '07:10', clarity: null, mood: null, pleasure: null, drive: 8 });
   assert.equal(suivi.days['2026-02-30'], undefined);
-  assert.deepEqual(pulsion.days, { '2026-09-18': { urge: 3, checksMin: 10 }, '2026-09-20': { urge: 2, checksMin: null } });
-  assert.deepEqual(pulsion.events.map(e => [e.day, e.nature, e.trigger]), [
-    ['2026-09-18', 'contenu', 'Fatigue'], ['2026-09-10', 'contenu', 'Ennui'], ['2026-09-09', 'sans', null],
+  assert.equal(pulsion.version, 2);
+  assert.deepEqual(pulsion.days, { '2026-09-18': { urge: 3, checksMin: 10 }, '2026-09-20': { urge: 2 } });
+  assert.deepEqual(pulsion.episodes, []);
+  assert.deepEqual(pulsion.events.map(e => [e.day, e.nature, e.triggers]), [
+    ['2026-09-18', 'contenu', ['Fatigue']], ['2026-09-10', 'contenu', ['Ennui']], ['2026-09-09', 'sans', []],
   ]);
   assert.equal(pulsion.events[0].id, 1726000000000);
   assert.deepEqual(tests.runs.map(r => r.test), ['pvt', 'span']);
@@ -55,6 +57,7 @@ test('convertLegacy sépare Suivi et Pulsion, ignore ce qui est invalide', () =>
 test('convertLegacy sans données renvoie des null', () => {
   assert.deepEqual(convertLegacy(null, null), { suivi: null, pulsion: null, tests: null });
   assert.deepEqual(convertLegacy({}, undefined).suivi, { version: 1, days: {} });
+  assert.deepEqual(convertLegacy({}, undefined).pulsion, { version: 2, days: {}, events: [], episodes: [] });
 });
 
 test('hasLegacy, isFresh et migrateLegacy remplacent les stores', () => {
