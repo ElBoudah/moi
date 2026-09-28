@@ -9,6 +9,7 @@ import { testsSchema } from '../../js/modules/tests/schema.js';
 import { settingsSchema } from '../../js/modules/settings/schema.js';
 import { challengeSchema } from '../../js/modules/challenge/schema.js';
 import { mindSchema } from '../../js/modules/mind/schema.js';
+import { rappelSchema } from '../../js/modules/rappel/schema.js';
 import * as suiviDay from '../../js/modules/suivi/views/day.js';
 import * as suiviData from '../../js/modules/suivi/views/data.js';
 import { memoryStorage, fakeNow, fakeId, resetFakes } from '../fixtures/helpers.mjs';
@@ -25,7 +26,7 @@ export function fakeRoot() {
 export function makeCtx() {
   resetFakes();
   const storage = memoryStorage();
-  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema, mind: mindSchema };
+  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema, mind: mindSchema, rappel: rappelSchema };
   const stores = Object.fromEntries(Object.entries(schemas).map(([n, s]) => [n, new Store(storage, s, { now: fakeNow, makeId: fakeId })]));
   for (const s of Object.values(stores)) s.load();
   stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', clarity: 6, mood: 5, pleasure: 4, drive: 7 }; });
@@ -81,7 +82,7 @@ test('Réglages : apparence, LLM, une ligne par module, backup, version, section
   render(root, ctx);
   assert.equal((root.innerHTML.match(/data-theme-pref="/g) || []).length, 3);
   assert.match(root.innerHTML, /name="apiKey"/);
-  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 5); // suivi, pulsion, challenge, tests, mind
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 6); // suivi, pulsion, challenge, tests, mind, rappel
   assert.match(root.innerHTML, /data-cloud-restore/);
   assert.match(root.innerHTML, /cloud non configuré/);
   assert.match(root.innerHTML, /Moi 0\.0\.0/);
@@ -232,5 +233,62 @@ test('Réglages : section Sujets posés quand le store Mind existe', async () =>
   assert.match(root.innerHTML, /Sujets posés/);
   assert.match(root.innerHTML, /data-mind="moi"/);
   assert.match(root.innerHTML, /data-mind="vacances"/);
-  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 5); // suivi, pulsion, challenge, tests, mind
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 6); // suivi, pulsion, challenge, tests, mind, rappel
+});
+
+test('Rappel accueil : bibliothèque vide, puis dues et nouvelles, puis « réviser quand même »', async () => {
+  const { render } = await import('../../js/modules/rappel/views/home.js');
+  const { addItems, recordReview } = await import('../../js/modules/rappel/ops.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  assert.match(root.innerHTML, /bibliothèque est vide/i);
+  addItems(ctx.stores.rappel, [{ kind: 'fait', title: 'A', content: 'a.' }, { kind: 'idee', title: 'B', content: 'b.' }], Date.now() - 10 * 86400000);
+  render(root, ctx);
+  assert.match(root.innerHTML, /0 due · 2 nouvelles/);
+  assert.match(root.innerHTML, /data-review/);
+  recordReview(ctx.stores.rappel, 'id1', 4, 'Q', Date.now());
+  recordReview(ctx.stores.rappel, 'id2', 4, 'Q', Date.now());
+  render(root, ctx);
+  assert.match(root.innerHTML, /0 due · 0 nouvelle/);
+  assert.match(root.innerHTML, /data-anyway/);
+  assert.equal(root.innerHTML.includes('data-review'), false);
+});
+
+test('Rappel bibliothèque et capture', async () => {
+  const library = await import('../../js/modules/rappel/views/library.js');
+  const capture = await import('../../js/modules/rappel/views/capture.js');
+  const { addItems, recordReview } = await import('../../js/modules/rappel/ops.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  library.render(root, ctx);
+  assert.match(root.innerHTML, /Aucune fiche/);
+  addItems(ctx.stores.rappel, [{ kind: 'fait', title: 'A <b>', content: 'a.' }, { kind: 'idee', title: 'B', content: 'b.' }], Date.now());
+  recordReview(ctx.stores.rappel, 'id1', 3, 'Q', Date.now());
+  library.render(root, ctx);
+  assert.match(root.innerHTML, /2 fiches/);
+  assert.match(root.innerHTML, /A &lt;b&gt;/);
+  assert.match(root.innerHTML, /R \d+ % · S/);
+  assert.match(root.innerHTML, /nouveau/);
+  capture.render(root, ctx);
+  assert.match(root.innerHTML, /data-count="auto"/);
+  assert.match(root.innerHTML, /data-extract/);
+  assert.match(root.innerHTML, /data-manual/);
+});
+
+test('Rappel révision : sans session renvoie à l\'accueil ; sans clé API, erreur lisible et boutons', async () => {
+  const review = await import('../../js/modules/rappel/views/review.js');
+  const { addItems } = await import('../../js/modules/rappel/ops.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  const nav = []; ctx.navigate = r => nav.push(r); ctx.onLeave = () => {};
+  review.render(root, ctx);
+  assert.deepEqual(nav, [{ tab: 'rappel' }]);
+  addItems(ctx.stores.rappel, [{ kind: 'fait', title: 'A', content: 'a.' }], Date.now());
+  review.startReview(ctx, ['id1']);
+  assert.deepEqual(nav.at(-1), { tab: 'rappel', view: 'review' });
+  review.render(root, ctx);
+  assert.match(root.innerHTML, /1 \/ 1/);
+  await new Promise(r => setTimeout(r, 20));
+  assert.match(root.innerHTML, /Aucune clé API/);
+  assert.match(root.innerHTML, /data-retry/);
+  assert.match(root.innerHTML, /data-stop/);
+  assert.equal(ctx.stores.rappel.doc.items[0].reps, 0);
 });

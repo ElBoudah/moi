@@ -216,3 +216,26 @@ h1.title span { overflow-wrap: anywhere; }
 .search-input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--card); margin-bottom: 18px; font-size: 1.05rem; }
 /* La barre basse de la fiche se superpose à la barre d'onglets : on dégage le bas de l'écran. */
 #view:has(.bottom-bar) { padding-bottom: calc(170px + env(safe-area-inset-bottom)); }
+
+/* Rappel */
+.center { text-align: center; padding: 24px var(--pad); }
+.rappel-lead { font-size: 1.1rem; line-height: 1.55; margin: 8px 0 14px; }
+.rappel-q { font-size: 1.25rem; line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 14px; margin: 10px 0 16px; }
+.badge { display: inline-block; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; margin-right: 8px; }
+.lib-item { padding: 0; }
+.lib-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 12px var(--pad); text-align: left; }
+.lib-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-detail { border-top: 1px solid var(--line); padding: 12px var(--pad) 14px; }
+.lib-detail p { margin: 0 0 8px; }
+.prop { padding: 12px var(--pad); }
+.prop.off { opacity: 0.5; }
+.prop-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.prop-head select { width: auto; }
+.stamp { display: inline-block; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; border: 1.5px solid currentColor; border-radius: 4px; padding: 2px 8px; }
+.stamp.g1 { color: var(--nat-contenu); } .stamp.g2 { color: var(--c-drive); } .stamp.g3 { color: var(--c-clarity); } .stamp.g4 { color: var(--c-mood); }
+.verdicts { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.verdicts .chip.on.g1 { color: var(--nat-contenu); border-color: var(--nat-contenu); background: transparent; }
+.verdicts .chip.on.g2 { color: var(--c-drive); border-color: var(--c-drive); background: transparent; }
+.verdicts .chip.on.g3 { color: var(--c-clarity); border-color: var(--c-clarity); background: transparent; }
+.verdicts .chip.on.g4 { color: var(--c-mood); border-color: var(--c-mood); background: transparent; }
+.working { text-align: center; padding: 40px 0; color: var(--muted); }
