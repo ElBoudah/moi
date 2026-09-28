@@ -1,11 +1,12 @@
 import { APP_VERSION } from './version.js';
 import { Store } from './core/store.js';
-import { onRoute, navigate } from './router.js';
+import { onRoute, navigate, replaceRoute } from './router.js';
 import { today } from './core/dates.js';
 import { notice, closeSheet, escapeHtml, downloadText } from './core/ui.js';
 import { bundleJson, autoBackup, cloudBackup } from './core/backup.js';
 import { hasLegacy, isFresh, migrateLegacy } from './core/migrate-legacy.js';
 import { flushDeferred } from './core/defer.js';
+import { watchDayChange } from './core/resume.js';
 import { settingsSchema } from './modules/settings/schema.js';
 import { suiviSchema } from './modules/suivi/schema.js';
 import { pulsionSchema } from './modules/pulsion/schema.js';
@@ -39,8 +40,11 @@ function main() {
   applyTheme(stores.settings.doc.theme);
 
   const getBundle = () => bundleJson(Object.fromEntries(Object.entries(stores).map(([n, s]) => [n, s.doc])));
-  autoBackup({ storage, getJson: getBundle, todayKey: today(), download: downloadText });
-  cloudBackup({ storage, getJson: getBundle, todayKey: today() });
+  const dailyBackups = () => {
+    autoBackup({ storage, getJson: getBundle, todayKey: today(), download: downloadText });
+    cloudBackup({ storage, getJson: getBundle, todayKey: today() });
+  };
+  dailyBackups();
   if (navigator.storage?.persist) navigator.storage.persist();
 
   const view = document.getElementById('view');
@@ -68,7 +72,7 @@ function main() {
   onRoute(r => {
     if (!r || !MODULES[r.tab]) {
       const last = stores.settings.doc.lastTab;
-      navigate({ tab: MODULES[last] ? last : 'suivi' });
+      replaceRoute({ tab: MODULES[last] ? last : 'suivi' });
       return;
     }
     flushDeferred();
@@ -82,6 +86,8 @@ function main() {
 
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushDeferred(); });
   window.addEventListener('pagehide', flushDeferred);
+  // PWA gardée en mémoire la nuit : au réveil un autre jour, backups du jour et écran rerendu sur la bonne date.
+  watchDayChange({ today, onChange: () => { dailyBackups(); if (route) draw(); } });
   if (migrated.length) notice('Données Suivi reprises.');
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', { type: 'module' }).catch(() => { /* hors ligne indisponible, l'app fonctionne quand même */ });
 }

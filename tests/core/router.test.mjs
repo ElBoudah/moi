@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRoute, routeHash, TABS } from '../../js/router.js';
+import { parseRoute, routeHash, replaceRoute, TABS } from '../../js/router.js';
 
 test('parseRoute : onglet, vue, identifiant', () => {
   assert.deepEqual(parseRoute('#/suivi'), { tab: 'suivi', view: 'home', id: undefined });
@@ -19,4 +19,13 @@ test('routeHash est l\'inverse de parseRoute', () => {
     assert.deepEqual(parseRoute(routeHash(r)), { id: undefined, ...r });
   }
   assert.equal(routeHash({ tab: 'pulsion' }), '#/pulsion');
+});
+
+test('replaceRoute remplace l\'entrée d\'historique au lieu d\'en ajouter une', () => {
+  const calls = [];
+  globalThis.location = { hash: '', replace: url => calls.push(url) };
+  try {
+    replaceRoute({ tab: 'suivi' });
+    assert.deepEqual(calls, ['#/suivi']);
+  } finally { delete globalThis.location; }
 });

@@ -7,7 +7,7 @@ const ASSETS = [
   './', './index.html', './style.css', './manifest.webmanifest',
   './js/version.js', './js/app.js', './js/router.js',
   './js/core/dates.js', './js/core/stats.js', './js/core/store.js', './js/core/chart.js', './js/core/backup.js',
-  './js/core/migrate-legacy.js', './js/core/ui.js', './js/core/defer.js',
+  './js/core/migrate-legacy.js', './js/core/ui.js', './js/core/defer.js', './js/core/resume.js',
   './js/modules/settings/schema.js', './js/modules/settings/views/home.js', './js/modules/rappel/presets.js',
   './js/modules/suivi/schema.js', './js/modules/suivi/queries.js', './js/modules/suivi/ops.js',
   './js/modules/suivi/views/day.js', './js/modules/suivi/views/data.js',

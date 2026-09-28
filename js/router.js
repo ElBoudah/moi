@@ -16,6 +16,10 @@ export function routeHash({ tab, view = 'home', id }) {
 
 export function navigate(route) { location.hash = routeHash(route); }
 
+// Redirection : remplace l'entrée d'historique au lieu d'en ajouter une, sinon le bouton
+// retour du téléphone retombe sur l'URL de départ, qui redirige à nouveau, sans fin.
+export function replaceRoute(route) { location.replace(routeHash(route)); }
+
 export function onRoute(fn) {
   const fire = () => fn(parseRoute(location.hash));
   window.addEventListener('hashchange', fire);

@@ -18,6 +18,7 @@ const legacy = { days: {
   { id: 1724000000000, day: '2026-09-09', ts: '2026-09-09T22:00:00.000Z', type: 'solo', trigger: null },
   { id: 1723000000000, day: '2026-09-08', ts: '2026-09-08T22:00:00.000Z', type: 'resistee', trigger: 'Ennui' },
   { id: 1722000000000, day: 'hier', ts: '2026-09-07T22:00:00.000Z', nature: 'contenu', trigger: 'Ennui' },
+  { id: 1721000000000, day: '2026-09-06', ts: '2026-09-06T22:00:00.000Z', nature: 'autre', trigger: null },
   null,
 ] };
 const legacyTests = { runs: [
@@ -31,6 +32,7 @@ test('natureOf lit nature puis type', () => {
   assert.equal(natureOf({ type: 'rechute' }), 'contenu');
   assert.equal(natureOf({ type: 'solo' }), 'sans');
   assert.equal(natureOf({ type: 'resistee' }), null);
+  assert.equal(natureOf({ nature: 'autre' }), null); // une nature inconnue ne doit jamais faire planter la reprise
 });
 
 test('convertLegacy sépare Suivi et Pulsion, ignore ce qui est invalide', () => {

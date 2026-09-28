@@ -54,7 +54,13 @@ export function parseBundle(text, schemas) {
 }
 
 /* ---------- Chiffrement ---------- */
-const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+// Par tranches : étaler un argument par octet fait déborder la pile dès ~125 Ko.
+const b64 = buf => {
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
 const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
 async function deriveKey(pass, salt) {
@@ -84,7 +90,15 @@ export function cloudConfig(storage, ask = null) {
   if ((!token || !pass) && ask) {
     token = (ask('Token GitHub (portée Gists uniquement) :') || '').trim();
     pass = (ask('Passphrase de chiffrement (à noter précieusement !) :') || '').trim();
-    if (token && pass) { storage.setItem('cloud_token', token); storage.setItem('cloud_pass', pass); }
+    if (token && pass) {
+      storage.setItem('cloud_token', token);
+      storage.setItem('cloud_pass', pass);
+      // Nouveau téléphone : réutiliser le gist existant plutôt qu'en créer un vide.
+      if (!storage.getItem('cloud_gist')) {
+        const gid = (ask("ID d'un gist de backup existant (vide pour en créer un) :") || '').trim();
+        if (gid) storage.setItem('cloud_gist', gid);
+      }
+    }
   }
   return token && pass ? { token, pass, gistId: storage.getItem('cloud_gist') } : null;
 }
@@ -134,9 +148,9 @@ export async function cloudRestore({ storage, ask = null, fetchFn = globalThis.f
   if (!gid) {
     gid = (ask?.("ID du gist de backup (visible dans l'URL du gist) :") || '').trim();
     if (!gid) throw new Error("pas d'ID de gist");
-    storage.setItem('cloud_gist', gid);
   }
   const g = await gistApi('GET', `/gists/${gid}`, cfg.token, undefined, fetchFn);
+  if (!cfg.gistId) storage.setItem('cloud_gist', gid); // mémorisé seulement une fois vérifié
   const f = g.files?.[GIST_FILE];
   if (!f) throw new Error('aucun backup Moi dans ce gist');
   const content = f.truncated ? await (await fetchFn(f.raw_url)).text() : f.content;

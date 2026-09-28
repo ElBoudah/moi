@@ -82,7 +82,7 @@ test('cloudBackup : non configuré, puis création du gist, puis déjà fait, pu
   const fetchFn = fakeFetch(gists);
   const getJson = () => bundleJson(docs(), NOW);
   assert.equal(await cloudBackup({ storage, getJson, todayKey: '2026-09-20', fetchFn }), 'non configuré');
-  const answers = ['tok', 'pass'];
+  const answers = ['tok', 'pass', ''];  // token, passphrase, pas de gist existant → création
   const ask = () => answers.shift();
   assert.equal(await cloudBackup({ storage, getJson, todayKey: '2026-09-20', ask, force: true, fetchFn }), 'ok');
   assert.equal(storage.getItem('cloud_gist'), 'g1');
@@ -126,4 +126,29 @@ test('autoBackup une fois par jour, jamais bloquant', () => {
   assert.equal(autoBackup({ storage, getJson: () => '{}', todayKey: '2026-09-20', download }), false);
   assert.equal(autoBackup({ storage, getJson: () => { throw new Error('x'); }, todayKey: '2026-09-21', download }), false);
   assert.equal(cloudStatus(memoryStorage()), 'cloud non configuré');
+});
+
+test('chiffrement d\'un gros bundle (300 Ko) sans débordement de pile', async () => {
+  const big = 'x'.repeat(300_000);
+  assert.equal(await decryptText('p', await encryptText('p', big)), big);
+});
+
+test('configuration sur un nouveau téléphone : un gist existant est réutilisé, pas recréé', async () => {
+  resetCloudSession();
+  const storage = memoryStorage();
+  const gists = { 'g-old': { id: 'g-old', files: {} } };
+  const fetchFn = fakeFetch(gists);
+  const answers = ['tok', 'pass', 'g-old'];
+  const r = await cloudBackup({ storage, getJson: () => 'x', todayKey: '2026-09-20', ask: () => answers.shift(), force: true, fetchFn });
+  assert.equal(r, 'ok');
+  assert.equal(storage.getItem('cloud_gist'), 'g-old');
+  assert.equal(gists.g1, undefined);
+  assert.ok(gists['g-old'].files[GIST_FILE]);
+});
+
+test('cloudRestore ne mémorise pas un ID de gist qui ne répond pas', async () => {
+  const storage = memoryStorage({ cloud_token: 'tok', cloud_pass: 'pass' });
+  const fetchFn = fakeFetch({});
+  await assert.rejects(cloudRestore({ storage, ask: () => 'nope', fetchFn }), /Gist API 404/);
+  assert.equal(storage.getItem('cloud_gist'), null);
 });

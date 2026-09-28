@@ -1,13 +1,14 @@
 // Reprise en place des données de l'ancienne app Suivi (même origine GitHub Pages,
 // donc même localStorage). Les anciennes clés ne sont jamais effacées.
 import { isDayKey, isTime } from './dates.js';
+import { NATURES } from '../modules/pulsion/schema.js';
 
 export const LEGACY_SUIVI_KEY = 'suivi_v1';
 export const LEGACY_TESTS_KEY = 'suivi_tests_v1';
 
 // Les événements d'avant la v1.2 de Suivi portaient un champ "type".
 export function natureOf(e) {
-  if (e.nature) return e.nature;
+  if (e.nature) return NATURES[e.nature] ? e.nature : null;
   if (e.type === 'rechute') return 'contenu';
   if (e.type === 'solo') return 'sans';
   return null; // "resistee" : plus une catégorie
