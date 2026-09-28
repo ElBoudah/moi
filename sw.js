@@ -17,6 +17,9 @@ const ASSETS = [
   './js/modules/tests/queries.js', './js/modules/tests/ops.js', './js/modules/tests/stage.js',
   './js/modules/tests/catalog/index.js', './js/modules/tests/catalog/pvt.js', './js/modules/tests/catalog/phq8.js',
   './js/modules/tests/views/home.js', './js/modules/tests/views/run.js',
+  './js/modules/mind/schema.js', './js/modules/mind/queries.js', './js/modules/mind/ops.js',
+  './js/modules/mind/views/helpers.js', './js/modules/mind/views/home.js', './js/modules/mind/views/subject.js',
+  './js/modules/mind/views/search.js', './js/modules/mind/views/tree.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
 ];
 
