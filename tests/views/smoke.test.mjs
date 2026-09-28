@@ -46,6 +46,10 @@ test('Suivi jour : sommeil, quatre curseurs ancrés, navigateur de jour', () => 
   const root = fakeRoot(), ctx = makeCtx();
   suiviDay.render(root, ctx);
   assert.match(root.innerHTML, /data-time="bed"/);
+  assert.match(root.innerHTML, /data-chips="onsetMin"/);
+  assert.match(root.innerHTML, /data-chips="awakeMin"/);
+  assert.match(root.innerHTML, /data-note/);
+  assert.match(root.innerHTML, /0\/140/);
   assert.equal((root.innerHTML.match(/data-range="/g) || []).length, 4);
   assert.match(root.innerHTML, /brouillard, je relis trois fois/);
   assert.match(root.innerHTML, /data-daynav="1"[^>]*disabled/);
@@ -60,6 +64,8 @@ test('Suivi données : bloc 7 jours, quatre courbes avec repère d\'acte, bouton
   assert.equal((root.innerHTML.match(/stroke="var\(--nat-contenu\)"/g) || []).length, 4);
   assert.match(root.innerHTML, /data-copy/);
   assert.match(root.innerHTML, /7 h 30/);
+  assert.match(root.innerHTML, /dormi 7 h 30/);
+  assert.match(root.innerHTML, /efficacité 100 %/);
 });
 
 test('Pulsion : protocole, pression, checks, trois natures, courbe avec repère, derniers actes', async () => {

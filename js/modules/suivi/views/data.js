@@ -24,13 +24,15 @@ export function render(root, ctx) {
   const mk = eventMarks(s.keys, marks(ctx.stores.pulsion.doc));
   const st = (k, v) => `<div class="st"><span class="k">${k}</span><span class="v mono">${v}</span></div>`;
   const dur = s7.dur.m == null ? '—' : hm(s7.dur.m) + (s7.dur.sd == null ? '' : ` ± ${Math.round(s7.dur.sd)} min`);
+  const slept = s7.sleep.m == null ? '—' : hm(s7.sleep.m);
+  const eff = s7.eff == null ? '—' : `${Math.round(s7.eff * 100)} %`;
   const reg = s7.bedSD == null ? '—' : `± ${Math.round(s7.bedSD)} min`;
 
   root.innerHTML = `
     ${subTabs('data')}
     <div class="card">
       ${st('7 derniers jours', `${s7.logged}/7 jours loggés`)}
-      ${st('Sommeil', `${s7.nights} nuits · ${dur}<br>coucher ${reg}`)}
+      ${st('Sommeil', `${s7.nights} nuits · au lit ${dur}<br>dormi ${slept} · efficacité ${eff}<br>coucher ${reg}`)}
       ${SLIDERS.map(f => st(LABELS[f], `${pm(s7.packs[f].m, s7.packs[f].sd, '/10')} · var ${fmt(s7.packs[f].v)}`)).join('')}
     </div>
     <div class="card">

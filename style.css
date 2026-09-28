@@ -239,3 +239,4 @@ h1.title span { overflow-wrap: anywhere; }
 .verdicts .chip.on.g3 { color: var(--c-clarity); border-color: var(--c-clarity); background: transparent; }
 .verdicts .chip.on.g4 { color: var(--c-mood); border-color: var(--c-mood); background: transparent; }
 .working { text-align: center; padding: 40px 0; color: var(--muted); }
+.cnt { text-align: right; margin-top: 4px; }
