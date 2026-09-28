@@ -19,23 +19,24 @@ function mmss(ms) {
 }
 
 function start(stage, onDone) {
+  const now = () => (stage.now ? stage.now() : performance.now());
   const rts = [];
-  let falseStarts = 0, onset = null, isi = null, raf = null, done = false;
-  const end = performance.now() + DURATION_MS;
+  let falseStarts = 0, onset = null, isi = null, wait = null, raf = null, done = false;
+  const end = now() + DURATION_MS;
   stage.body('<div class="stim" data-stim><span class="counter mono" data-cnt></span></div><div class="flash" data-flash></div>');
   const stim = stage.el.querySelector('[data-stim]');
   const cnt = stage.el.querySelector('[data-cnt]');
   const flash = stage.el.querySelector('[data-flash]');
-  const tick = () => stage.timer(mmss(end - performance.now()));
+  const tick = () => stage.timer(mmss(end - now()));
   stage.interval(tick, 250);
   tick();
 
   function schedule() {
     onset = null; cnt.textContent = ''; stim.classList.remove('on');
-    if (performance.now() >= end) { finish(); return; }
+    if (now() >= end) { finish(); return; }
     isi = stage.timeout(() => {
-      onset = performance.now(); stim.classList.add('on');
-      const loop = () => { if (onset === null) return; cnt.textContent = Math.round(performance.now() - onset); raf = stage.raf(loop); };
+      onset = now(); stim.classList.add('on');
+      const loop = () => { if (onset === null) return; cnt.textContent = Math.round(now() - onset); raf = stage.raf(loop); };
       loop();
     }, 1000 + Math.random() * 3000);
   }
@@ -43,17 +44,19 @@ function start(stage, onDone) {
   function onTap() {
     if (done) return;
     if (onset === null) {
-      falseStarts++; stage.clearTimeout(isi);
+      // Faux départ : avant le stimulus, ou pendant la fenêtre de retour qui suit une réponse.
+      // Annuler les deux minuteurs possibles, sinon deux chaînes de stimulus tournent en parallèle.
+      falseStarts++; stage.clearTimeout(isi); stage.clearTimeout(wait);
       flash.textContent = 'trop tôt';
       stage.timeout(() => { if (!done) flash.textContent = ''; }, 700);
       schedule();
       return;
     }
-    const rt = performance.now() - onset;
+    const rt = now() - onset;
     stage.cancelRaf(raf); onset = null; stim.classList.remove('on');
     if (rt < 100) { falseStarts++; flash.textContent = 'trop tôt'; }
     else { rts.push(rt); cnt.textContent = Math.round(rt); flash.textContent = ''; }
-    stage.timeout(() => { if (!done) { flash.textContent = ''; schedule(); } }, 900);
+    wait = stage.timeout(() => { if (!done) { flash.textContent = ''; schedule(); } }, 900);
   }
   stage.listen(stage.el, 'pointerdown', onTap);
 

@@ -67,6 +67,9 @@ function main() {
   const ctx = { stores, schemas: SCHEMAS, storage, navigate, notice, today, applyTheme, version: APP_VERSION, getBundle, onLeave: fn => { leave = fn; }, get route() { return route; } };
 
   function draw() {
+    // Un redessin remplace la vue : son nettoyage éventuel (scène de test) doit partir avant.
+    leave?.();
+    leave = null;
     const mod = MODULES[route.tab];
     const render = mod.views[route.view] ?? mod.views.home;
     const isSettings = route.tab === 'settings';
@@ -85,8 +88,6 @@ function main() {
       return;
     }
     flushDeferred();
-    leave?.();
-    leave = null;
     route = r;
     closeSheet();
     window.scrollTo(0, 0);

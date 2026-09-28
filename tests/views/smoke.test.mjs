@@ -152,3 +152,18 @@ test('Tests : la passation enregistre un run à Enregistrer et nettoie en quitta
   assert.match(root.innerHTML, /Test inconnu/);
   assert.equal(ctx.stores.tests.doc.runs.length, 0);
 });
+
+test('Tests : rerendre la passation nettoie la scène précédente', async () => {
+  const { render } = await import('../../js/modules/tests/views/run.js');
+  const removed = [];
+  const el = { innerHTML: '', textContent: '', classList: { toggle() {}, add() {}, remove() {} }, addEventListener() {}, removeEventListener: (ev) => removed.push(ev) };
+  el.querySelector = () => el; el.querySelectorAll = () => [];
+  const root = { innerHTML: '', querySelector: () => el, querySelectorAll: () => [] };
+  const ctx = makeCtx();
+  ctx.onLeave = () => {};
+  ctx.route = { tab: 'tests', view: 'run', id: 'phq8' };
+  render(root, ctx);
+  assert.deepEqual(removed, []);
+  render(root, ctx);
+  assert.deepEqual(removed, ['click']); // l'écouteur « Commencer » de la première scène est retiré
+});

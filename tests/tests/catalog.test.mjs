@@ -82,3 +82,37 @@ test('catalogue : deux tests, identifiants uniques, libellés de repli', () => {
   assert.equal(summaryFor({ test: 'phq', metrics: { score: 6, band: 'léger' } }), 'PHQ-8 6/24 · léger');
   assert.equal(summaryFor({ test: 'inconnu', metrics: {} }), 'inconnu');
 });
+
+// Scène factice à horloge manuelle : les minuteurs sont enregistrés avec leur handle, jamais exécutés seuls.
+function clockStage() {
+  const el = { innerHTML: '', querySelector: () => el, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {}, classList: { add() {}, remove() {} }, textContent: '' };
+  let t = 0, h = 0;
+  const s = { el, clock: 0, timers: new Map(), listeners: [], cleared: [],
+    now: () => s.clock, title() {}, timer() {}, body: html => { el.innerHTML = html; },
+    timeout: (fn, ms) => { h += 1; s.timers.set(h, { fn, ms }); return h; },
+    clearTimeout: id => { if (s.timers.delete(id)) s.cleared.push(id); },
+    interval: () => 0, raf: () => 0, cancelRaf() {},
+    listen: (target, ev, fn) => s.listeners.push({ ev, fn }), clearAll() {}, result() {} };
+  s.fire = id => { const x = s.timers.get(id); s.timers.delete(id); x.fn(); };
+  s.live = () => [...s.timers.entries()];
+  return s;
+}
+
+test('PVT : un tap pendant la fenêtre de retour annule ce retour et ne lance qu\'une seule chaîne', () => {
+  const stage = clockStage();
+  pvt.run(stage, () => {});
+  stage.listeners[0].fn(); // Commencer
+  const tap = stage.listeners.find(l => l.ev === 'pointerdown').fn;
+  const [isiId] = stage.live()[0];
+  stage.fire(isiId); // stimulus affiché, onset = 0
+  stage.clock = 250;
+  tap(); // réponse valide → un minuteur de retour de 900 ms
+  assert.deepEqual(stage.live().map(([, x]) => x.ms), [900]);
+  const [waitId] = stage.live()[0];
+  stage.clock = 400;
+  tap(); // tap parasite pendant le retour : faux départ
+  assert.ok(stage.cleared.includes(waitId), 'le minuteur de retour est annulé');
+  const isis = stage.live().filter(([, x]) => x.ms >= 1000 && x.ms <= 4000);
+  assert.equal(isis.length, 1, 'une seule chaîne de stimulus reste armée');
+  assert.equal(stage.live().filter(([, x]) => x.ms === 700).length, 1); // effacement du « trop tôt »
+});
