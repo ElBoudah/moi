@@ -309,9 +309,16 @@ test('Rappel capture : l\'ajout à la main active le bouton dès que titre et co
   root.oninput({ target: { closest: sel => (sel === '[data-content]' ? { dataset: { content: '0' }, value: 'Un savoir.' } : null) } });
   assert.equal(el.disabled, false);
   assert.match(el.textContent, /Ajouter 1 fiche/);
+  // Le store notifie pendant l'ajout : l'écran doit déjà être revenu au dump quand il se redessine.
+  let seenDuringNotify = null;
+  ctx.stores.rappel.subscribe(() => { render(root, ctx); seenDuringNotify = root.innerHTML; });
   root.onclick({ target: { closest: sel => (sel === '[data-add]' ? {} : null) } });
   assert.equal(ctx.stores.rappel.doc.items.length, 1);
   assert.equal(ctx.stores.rappel.doc.items[0].title, 'Titre');
+  assert.equal(seenDuringNotify.includes('data-add'), false);
+  assert.match(root.innerHTML, /1 fiche ajoutée/);
+  assert.match(root.innerHTML, /data-dump/);
+  assert.deepEqual(ctx.notices, ['1 fiche ajoutée à la bibliothèque.']);
 });
 
 test('Rappel révision : Réessayer après un échec de correction relance la correction avec la réponse', async () => {

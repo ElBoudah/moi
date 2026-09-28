@@ -87,11 +87,14 @@ export function render(root, ctx) {
     if (e.target.closest('[data-manual]')) { proposals = [{ included: true, kind: 'fait', title: '', content: '' }]; error = null; added = null; return rerender(); }
     if (e.target.closest('[data-cancel]')) { proposals = null; return rerender(); }
     if (e.target.closest('[data-add]')) {
-      const items = addItems(store, proposals.filter(p => p.included), Date.now());
-      proposals = null; text = '';
-      if (!items.length) { added = null; return rerender(); } // rien d'écrit, donc pas de notification : on se rerend soi-même
-      added = `${items.length} fiche${items.length > 1 ? 's' : ''} ajoutée${items.length > 1 ? 's' : ''} à la bibliothèque.`;
-      return; // le store notifie, l'écran se rerend
+      // L'état d'écran est remis à zéro AVANT l'écriture : le store notifie pendant l'ajout et l'écran
+      // se redessine à ce moment-là, il doit déjà montrer le dump vide, pas les anciennes propositions.
+      const chosen = proposals.filter(p => p.included);
+      proposals = null; text = ''; error = null;
+      const items = addItems(store, chosen, Date.now());
+      added = items.length ? `${items.length} fiche${items.length > 1 ? 's' : ''} ajoutée${items.length > 1 ? 's' : ''} à la bibliothèque.` : null;
+      if (added) ctx.notice(added);
+      return rerender();
     }
   };
 }
