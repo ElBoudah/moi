@@ -12,7 +12,8 @@ import * as suiviData from '../../js/modules/suivi/views/data.js';
 import { memoryStorage, fakeNow, fakeId, resetFakes } from '../fixtures/helpers.mjs';
 
 export function fakeRoot() {
-  return { innerHTML: '', querySelector: () => ({ classList: { toggle() {} } }), querySelectorAll: () => [] };
+  // querySelector rend un élément inerte : classList, et les champs nommés d'un formulaire.
+  return { innerHTML: '', querySelector: () => ({ classList: { toggle() {} }, provider: {}, model: {}, apiKey: {} }), querySelectorAll: () => [] };
 }
 
 export function makeCtx() {
@@ -66,4 +67,23 @@ test('Pulsion : protocole, pression, checks, trois natures, courbe avec repère,
   assert.match(root.innerHTML, /stroke="var\(--nat-contenu\)"/);
   assert.match(root.innerHTML, /seul, avec contenu · fatigue/);
   assert.match(root.innerHTML, /Copier le bilan pulsion/);
+});
+
+test('Réglages : apparence, LLM, une ligne par module, backup, version, sections conditionnelles', async () => {
+  const { render } = await import('../../js/modules/settings/views/home.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  assert.equal((root.innerHTML.match(/data-theme-pref="/g) || []).length, 3);
+  assert.match(root.innerHTML, /name="apiKey"/);
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 3); // suivi, pulsion, tests
+  assert.match(root.innerHTML, /data-cloud-restore/);
+  assert.match(root.innerHTML, /cloud non configuré/);
+  assert.match(root.innerHTML, /Moi 0\.0\.0/);
+  assert.equal(root.innerHTML.includes('Ancienne app Suivi'), false);
+  assert.equal(root.innerHTML.includes('Données illisibles'), false);
+  ctx.storage.setItem('suivi_v1', '{}');
+  ctx.stores.tests.corrupt = '{x';
+  render(root, ctx);
+  assert.match(root.innerHTML, /Ancienne app Suivi/);
+  assert.match(root.innerHTML, /data-recover="tests"/);
 });
