@@ -1,0 +1,47 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { durMin, bedShift, windowKeys, stats, bilan } from '../../js/modules/suivi/queries.js';
+
+const doc = { version: 1, days: {
+  '2026-09-18': { bed: '23:50', wake: '07:20', clarity: 6, mood: 5, pleasure: 4, drive: 6 },
+  '2026-09-19': { bed: '00:10', wake: '07:00', clarity: 8, mood: 7, pleasure: null, drive: 4 },
+  '2026-09-20': { bed: null, wake: null, clarity: 7, mood: null, pleasure: 6, drive: null },
+} };
+
+test('durMin gère le passage de minuit, bedShift recentre sur 18 h', () => {
+  assert.equal(durMin({ bed: '23:50', wake: '07:20' }), 450);
+  assert.equal(durMin({ bed: '00:10', wake: '07:00' }), 410);
+  assert.equal(durMin({ bed: null, wake: '07:00' }), null);
+  assert.equal(bedShift('23:50'), 350);
+  assert.equal(bedShift('00:10'), 370);
+  assert.equal(bedShift(null), null);
+});
+
+test('windowKeys liste les jours du plus ancien à aujourd\'hui', () => {
+  assert.deepEqual(windowKeys('2026-09-20', 3), ['2026-09-18', '2026-09-19', '2026-09-20']);
+});
+
+test('stats sur 7 jours', () => {
+  const s = stats(doc, 7, '2026-09-20');
+  assert.equal(s.keys.length, 7);
+  assert.equal(s.logged, 3);
+  assert.equal(s.nights, 2);
+  assert.equal(s.dur.m, 430);
+  assert.equal(Math.round(s.bedSD), 14);
+  assert.deepEqual(s.series.clarity, [null, null, null, null, 6, 8, 7]);
+  assert.equal(s.packs.clarity.n, 3);
+  assert.equal(s.packs.clarity.v, 1.5);
+  assert.equal(s.packs.mood.n, 2);
+  assert.equal(s.packs.mood.v, 2);
+});
+
+test('bilan est un texte de sept lignes en français', () => {
+  const b = bilan(doc, '2026-09-20');
+  const lines = b.split('\n');
+  assert.equal(lines.length, 7);
+  assert.match(lines[0], /^SUIVI 14\/09 → 20\/09$/);
+  assert.equal(lines[1], 'Jours loggés : 3/7');
+  assert.match(lines[2], /^Sommeil : 2 nuits · durée 7 h 10 ± 28 min · régularité du coucher ± 14 min$/);
+  assert.match(lines[3], /^Clarté : 7 ± 1\/10 · variation j\/j 1,5$/);
+  assert.match(lines[6], /^Motivation : 5 ± 1,4\/10 · variation j\/j 2$/);
+});
