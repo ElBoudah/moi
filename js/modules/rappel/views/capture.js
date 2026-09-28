@@ -45,6 +45,14 @@ export function render(root, ctx) {
       </div>`}`;
 
   const rerender = () => { if (mounted) render(root, ctx); };
+  // Pas de re-rendu pendant la saisie (le clavier du téléphone perdrait le focus) : on ajuste le bouton en place.
+  const syncAddButton = () => {
+    const n = proposals ? proposals.filter(p => p.included && p.title.trim() && p.content.trim()).length : 0;
+    const btn = root.querySelector('[data-add]');
+    if (!btn) return;
+    btn.toggleAttribute('disabled', !n);
+    btn.textContent = `Ajouter ${n} fiche${n > 1 ? 's' : ''}`;
+  };
 
   async function extract() {
     error = null; added = null;
@@ -65,6 +73,7 @@ export function render(root, ctx) {
     if (!proposals) return;
     const t = e.target.closest('[data-title]'); if (t) proposals[Number(t.dataset.title)].title = t.value;
     const c = e.target.closest('[data-content]'); if (c) proposals[Number(c.dataset.content)].content = c.value;
+    if (t || c) syncAddButton();
   };
   root.onchange = e => {
     if (!proposals) return;
@@ -80,6 +89,7 @@ export function render(root, ctx) {
     if (e.target.closest('[data-add]')) {
       const items = addItems(store, proposals.filter(p => p.included), Date.now());
       proposals = null; text = '';
+      if (!items.length) { added = null; return rerender(); } // rien d'écrit, donc pas de notification : on se rerend soi-même
       added = `${items.length} fiche${items.length > 1 ? 's' : ''} ajoutée${items.length > 1 ? 's' : ''} à la bibliothèque.`;
       return; // le store notifie, l'écran se rerend
     }

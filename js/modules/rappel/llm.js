@@ -11,7 +11,8 @@ export async function fetchJSON(url, options, { tries = 3, fetchFn = globalThis.
   let lastErr = null;
   for (let i = 0; i < tries; i++) {
     try {
-      const res = await fetchFn(url, options);
+      const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined;
+      const res = await fetchFn(url, signal ? { ...options, signal } : options);
       if ([429, 503, 529].includes(res.status) && i < tries - 1) { await wait(1200 * Math.pow(2.5, i)); continue; }
       const data = await res.json();
       return { res, data };
@@ -59,6 +60,9 @@ export async function askLLM(llm, prompt, maxTokens = 1000, opts = {}) {
 
 export function humanError(e) {
   if (e && e.message === 'NO_KEY') return 'Aucune clé API — renseigne-la dans Réglages.';
+  if (e && e.name === 'TimeoutError') return 'Le fournisseur ne répond pas (30 s).';
+  if (e instanceof TypeError) return 'Réseau indisponible.';
+  if (e instanceof SyntaxError) return 'Réponse illisible du fournisseur.';
   return e && e.message ? e.message : 'Erreur inconnue';
 }
 

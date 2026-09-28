@@ -44,7 +44,7 @@ async function loadQuestion(root, ctx) {
     delete prefetch[it.id];
     if (session === s) { s.phase = 'answer'; s.question = q; }
   } catch (e) {
-    if (session === s) { s.phase = 'error'; s.error = `La question n'a pas pu être générée. ${humanError(e)}`; }
+    if (session === s) { s.phase = 'error'; s.failed = 'question'; s.error = `La question n'a pas pu être générée. ${humanError(e)}`; }
   }
   if (mounted && session === s) render(root, ctx);
 }
@@ -58,7 +58,7 @@ async function submit(root, ctx) {
     const result = await llmGrade(llmOf(ctx), it, s.question, s.answer.trim() || '(aucune réponse)', tierOf(it));
     if (session === s) { s.phase = 'feedback'; s.result = result; s.grade = gradeFromVerdict(result.verdict); }
   } catch (e) {
-    if (session === s) { s.phase = 'error'; s.error = `La correction a échoué. ${humanError(e)}`; }
+    if (session === s) { s.phase = 'error'; s.failed = 'grade'; s.error = `La correction a échoué. ${humanError(e)}`; }
   }
   if (mounted && session === s) render(root, ctx);
 }
@@ -73,10 +73,12 @@ function confirmAndNext(root, ctx) {
   loadQuestion(root, ctx);
 }
 
-function stop(ctx) { session = null; prefetch = {}; ctx.navigate({ tab: 'rappel' }); }
+// Retour à l'accueil par remplacement d'historique : le bouton retour du téléphone ne doit jamais retomber sur une révision vide.
+const goHome = ctx => (ctx.replace ?? ctx.navigate)({ tab: 'rappel' });
+function stop(ctx) { session = null; prefetch = {}; goHome(ctx); }
 
 export function render(root, ctx) {
-  if (!session) { ctx.navigate({ tab: 'rappel' }); return; }
+  if (!session) { goHome(ctx); return; }
   mounted = true;
   ctx.onLeave?.(() => { mounted = false; });
   const s = session;
@@ -91,15 +93,15 @@ export function render(root, ctx) {
   if (!it) { stop(ctx); return; }
   const tier = tierOf(it);
   const head = `<div class="srow"><span><span class="badge">${escapeHtml(KINDS[it.kind])}</span><span class="tiny mono">${it.lastReview ? tier : 'premier passage'}</span></span>
-    <span class="tiny mono">${s.index + 1} / ${s.queue.length}</span></div>`;
+    <span class="tiny mono">${s.index + 1} / ${s.queue.length} <button type="button" class="btn-text" data-stop>Arrêter</button></span></div>`;
 
   let body = '';
   if (s.phase === 'loading') body = '<div class="working">Formulation de la question…</div>';
   if (s.phase === 'grading') body = `<p class="rappel-q">${escapeHtml(s.question)}</p><div class="working">Correction…</div>`;
-  if (s.phase === 'error') body = `<div class="card center"><p class="tiny warn">${escapeHtml(s.error)}</p><div class="rowbtns"><button type="button" class="btn btn-ghost" data-retry>Réessayer</button><button type="button" class="btn btn-ghost" data-stop>Arrêter</button></div></div>`;
+  if (s.phase === 'error') body = `<div class="card center"><p class="tiny warn">${escapeHtml(s.error)}</p><div class="rowbtns"><button type="button" class="btn" data-retry>Réessayer</button></div></div>`;
   if (s.phase === 'answer') body = `<p class="rappel-q">${escapeHtml(s.question)}</p>
     <textarea data-answer rows="6" placeholder="Réponds même incertain — une tentative corrigée ancre mieux qu'un blanc.">${escapeHtml(s.answer)}</textarea>
-    <div class="rowbtns"><button type="button" class="btn btn-ghost" data-stop>Arrêter</button><button type="button" class="btn" data-submit>Corriger ma réponse</button></div>`;
+    <div class="rowbtns"><button type="button" class="btn" data-submit>Corriger ma réponse</button></div>`;
   if (s.phase === 'feedback') {
     const sim = applyReview(it, s.grade, Date.now());
     const d = intervalDays(sim.S);
@@ -111,14 +113,15 @@ export function render(root, ctx) {
       <p class="tiny mono">Verdict retenu — ajustable</p>
       <div class="verdicts">${GRADES.map(g => `<button type="button" class="chip${s.grade === g.g ? ` on g${g.g}` : ''}" data-grade="${g.g}">${g.label}</button>`).join('')}</div>
       <p class="tiny mono">prochain passage dans ~${d < 1 ? '1 j' : `${Math.round(d)} j`}</p>
-      <div class="rowbtns"><button type="button" class="btn btn-ghost" data-stop>Arrêter</button><button type="button" class="btn" data-confirm>${s.index + 1 >= s.queue.length ? 'Valider et terminer' : 'Valider, fiche suivante'}</button></div>`;
+      <div class="rowbtns"><button type="button" class="btn" data-confirm>${s.index + 1 >= s.queue.length ? 'Valider et terminer' : 'Valider, fiche suivante'}</button></div>`;
   }
   root.innerHTML = head + body;
 
   root.oninput = e => { const a = e.target.closest('[data-answer]'); if (a) s.answer = a.value; };
   root.onclick = e => {
     if (e.target.closest('[data-stop]')) return stop(ctx);
-    if (e.target.closest('[data-retry]')) return void loadQuestion(root, ctx);
+    // Réessayer relance l'opération qui a échoué : une correction ratée garde la question et la réponse.
+    if (e.target.closest('[data-retry]')) return void (s.failed === 'grade' ? submit(root, ctx) : loadQuestion(root, ctx));
     if (e.target.closest('[data-submit]')) return void submit(root, ctx);
     const g = e.target.closest('[data-grade]');
     if (g) { s.grade = Number(g.dataset.grade); return render(root, ctx); }

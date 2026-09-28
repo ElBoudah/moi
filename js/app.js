@@ -76,7 +76,7 @@ function main() {
 
   let route = null;
   let leave = null; // nettoyage de la vue courante, appelé une fois au prochain changement de route
-  const ctx = { stores, schemas: SCHEMAS, storage, navigate, notice, today, applyTheme, version: APP_VERSION, getBundle, onLeave: fn => { leave = fn; }, get route() { return route; } };
+  const ctx = { stores, schemas: SCHEMAS, storage, navigate, notice, today, applyTheme, version: APP_VERSION, getBundle, replace: replaceRoute, onLeave: fn => { leave = fn; }, get route() { return route; } };
 
   function draw() {
     // Un redessin remplace la vue : son nettoyage éventuel (scène de test) doit partir avant.

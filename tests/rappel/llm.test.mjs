@@ -17,6 +17,9 @@ test('humanError : sans clé, message vers Réglages', () => {
   assert.match(humanError(new Error('NO_KEY')), /Aucune clé API/);
   assert.equal(humanError(new Error('boom')), 'boom');
   assert.equal(humanError(null), 'Erreur inconnue');
+  assert.equal(humanError(new TypeError('Failed to fetch')), 'Réseau indisponible.');
+  assert.equal(humanError(new SyntaxError('Unexpected token <')), 'Réponse illisible du fournisseur.');
+  assert.equal(humanError(Object.assign(new Error('x'), { name: 'TimeoutError' })), 'Le fournisseur ne répond pas (30 s).');
 });
 
 test('askLLM refuse sans clé, sans appel réseau', async () => {

@@ -278,17 +278,72 @@ test('Rappel révision : sans session renvoie à l\'accueil ; sans clé API, err
   const review = await import('../../js/modules/rappel/views/review.js');
   const { addItems } = await import('../../js/modules/rappel/ops.js');
   const root = fakeRoot(), ctx = makeCtx();
-  const nav = []; ctx.navigate = r => nav.push(r); ctx.onLeave = () => {};
+  const nav = []; ctx.navigate = r => nav.push(r); ctx.replace = r => nav.push({ replace: true, ...r }); ctx.onLeave = () => {};
   review.render(root, ctx);
-  assert.deepEqual(nav, [{ tab: 'rappel' }]);
+  assert.deepEqual(nav, [{ replace: true, tab: 'rappel' }]); // remplacement : le bouton retour ne retombe pas sur une révision vide
   addItems(ctx.stores.rappel, [{ kind: 'fait', title: 'A', content: 'a.' }], Date.now());
   review.startReview(ctx, ['id1']);
   assert.deepEqual(nav.at(-1), { tab: 'rappel', view: 'review' });
   review.render(root, ctx);
   assert.match(root.innerHTML, /1 \/ 1/);
+  assert.match(root.innerHTML, /data-stop/); // Arrêter disponible dès le chargement
   await new Promise(r => setTimeout(r, 20));
   assert.match(root.innerHTML, /Aucune clé API/);
   assert.match(root.innerHTML, /data-retry/);
   assert.match(root.innerHTML, /data-stop/);
   assert.equal(ctx.stores.rappel.doc.items[0].reps, 0);
+});
+
+test('Rappel capture : l\'ajout à la main active le bouton dès que titre et contenu sont saisis', async () => {
+  const { render } = await import('../../js/modules/rappel/views/capture.js');
+  const el = { innerHTML: '', textContent: '', disabled: null, style: {}, classList: { toggle() {}, add() {}, remove() {} },
+    toggleAttribute(name, force) { if (name === 'disabled') el.disabled = force; }, addEventListener() {}, removeEventListener() {} };
+  el.querySelector = () => el; el.querySelectorAll = () => [];
+  const root = { innerHTML: '', querySelector: () => el, querySelectorAll: () => [], addEventListener() {} };
+  const ctx = makeCtx();
+  render(root, ctx);
+  root.onclick({ target: { closest: sel => (sel === '[data-manual]' ? {} : null) } });
+  assert.match(root.innerHTML, /data-add disabled/);
+  root.oninput({ target: { closest: sel => (sel === '[data-title]' ? { dataset: { title: '0' }, value: 'Titre' } : null) } });
+  assert.equal(el.disabled, true); // contenu encore vide
+  root.oninput({ target: { closest: sel => (sel === '[data-content]' ? { dataset: { content: '0' }, value: 'Un savoir.' } : null) } });
+  assert.equal(el.disabled, false);
+  assert.match(el.textContent, /Ajouter 1 fiche/);
+  root.onclick({ target: { closest: sel => (sel === '[data-add]' ? {} : null) } });
+  assert.equal(ctx.stores.rappel.doc.items.length, 1);
+  assert.equal(ctx.stores.rappel.doc.items[0].title, 'Titre');
+});
+
+test('Rappel révision : Réessayer après un échec de correction relance la correction avec la réponse', async () => {
+  const review = await import('../../js/modules/rappel/views/review.js');
+  const { addItems } = await import('../../js/modules/rappel/ops.js');
+  const root = fakeRoot(), ctx = makeCtx();
+  ctx.navigate = () => {}; ctx.replace = () => {}; ctx.onLeave = () => {};
+  ctx.stores.settings.commit(d => { d.llm.apiKey = 'k'; });
+  addItems(ctx.stores.rappel, [{ kind: 'fait', title: 'A', content: 'a.' }], Date.now());
+  const bodies = [];
+  let gradeCalls = 0;
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    const prompt = JSON.parse(opts.body).messages[0].content;
+    bodies.push(prompt);
+    if (prompt.includes('RÉPONSE DE L\'ÉTUDIANT')) { gradeCalls += 1; if (gradeCalls === 1) return { ok: false, status: 400, json: async () => ({ error: { message: 'boum' } }) }; /* non retentée : la vue passe en erreur tout de suite */ return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '{"verdict":"good","explication":"Oui."}' } }] }) }; }
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '{"question":"Quand ?"}' } }] }) };
+  };
+  try {
+    review.startReview(ctx, ['id1']);
+    review.render(root, ctx);
+    await new Promise(r => setTimeout(r, 20));
+    assert.match(root.innerHTML, /Quand \?/);
+    root.oninput({ target: { closest: sel => (sel === '[data-answer]' ? { value: 'ma réponse' } : null) } });
+    root.onclick({ target: { closest: sel => (sel === '[data-submit]' ? {} : null) } });
+    await new Promise(r => setTimeout(r, 20));
+    assert.match(root.innerHTML, /La correction a échoué/);
+    assert.match(root.innerHTML, /boum/);
+    root.onclick({ target: { closest: sel => (sel === '[data-retry]' ? {} : null) } });
+    await new Promise(r => setTimeout(r, 20));
+    assert.equal(gradeCalls, 2);
+    assert.match(bodies.at(-1), /ma réponse/);
+    assert.match(root.innerHTML, /Verdict retenu/);
+  } finally { globalThis.fetch = savedFetch; }
 });
