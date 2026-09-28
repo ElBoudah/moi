@@ -10,6 +10,8 @@ import { settingsSchema } from './modules/settings/schema.js';
 import { suiviSchema } from './modules/suivi/schema.js';
 import { pulsionSchema } from './modules/pulsion/schema.js';
 import { testsSchema } from './modules/tests/schema.js';
+import * as suiviDay from './modules/suivi/views/day.js';
+import * as suiviData from './modules/suivi/views/data.js';
 
 export const SCHEMAS = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, tests: testsSchema };
 
@@ -17,7 +19,7 @@ const soon = label => (root) => { root.innerHTML = `<p class="empty">${escapeHtm
 
 // Modules affichables : libellé, stores dont une notification rerend l'écran, vues par nom de route.
 const MODULES = {
-  suivi: { label: 'Suivi', stores: ['suivi', 'pulsion'], views: { home: soon('Suivi'), data: soon('Données') } },        // T14
+  suivi: { label: 'Suivi', stores: ['suivi', 'pulsion'], views: { home: suiviDay.render, data: suiviData.render } },
   pulsion: { label: 'Pulsion', stores: ['pulsion'], views: { home: soon('Pulsion') } },                                    // T15
   settings: { label: 'Réglages', stores: ['settings', 'suivi', 'pulsion', 'tests'], views: { home: soon('Réglages') } }, // T16
 };
