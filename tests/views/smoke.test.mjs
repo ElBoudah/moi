@@ -8,23 +8,24 @@ import { pulsionSchema } from '../../js/modules/pulsion/schema.js';
 import { testsSchema } from '../../js/modules/tests/schema.js';
 import { settingsSchema } from '../../js/modules/settings/schema.js';
 import { challengeSchema } from '../../js/modules/challenge/schema.js';
+import { mindSchema } from '../../js/modules/mind/schema.js';
 import * as suiviDay from '../../js/modules/suivi/views/day.js';
 import * as suiviData from '../../js/modules/suivi/views/data.js';
 import { memoryStorage, fakeNow, fakeId, resetFakes } from '../fixtures/helpers.mjs';
 
 export function fakeRoot() {
   // Élément inerte récursif : classList, champs de formulaire, sous-requêtes, écouteurs.
-  const el = { innerHTML: '', textContent: '', classList: { toggle() {}, add() {}, remove() {} }, provider: {}, model: {}, apiKey: {},
+  const el = { innerHTML: '', textContent: '', style: {}, classList: { toggle() {}, add() {}, remove() {} }, provider: {}, model: {}, apiKey: {},
     addEventListener() {}, removeEventListener() {} };
   el.querySelector = () => el;
   el.querySelectorAll = () => [];
-  return { innerHTML: '', querySelector: () => el, querySelectorAll: () => [] };
+  return { innerHTML: '', querySelector: () => el, querySelectorAll: () => [], addEventListener() {} };
 }
 
 export function makeCtx() {
   resetFakes();
   const storage = memoryStorage();
-  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema };
+  const schemas = { settings: settingsSchema, suivi: suiviSchema, pulsion: pulsionSchema, challenge: challengeSchema, tests: testsSchema, mind: mindSchema };
   const stores = Object.fromEntries(Object.entries(schemas).map(([n, s]) => [n, new Store(storage, s, { now: fakeNow, makeId: fakeId })]));
   for (const s of Object.values(stores)) s.load();
   stores.suivi.commit(d => { d.days['2026-09-19'] = { bed: '23:30', wake: '07:00', clarity: 6, mood: 5, pleasure: 4, drive: 7 }; });
@@ -80,7 +81,7 @@ test('Réglages : apparence, LLM, une ligne par module, backup, version, section
   render(root, ctx);
   assert.equal((root.innerHTML.match(/data-theme-pref="/g) || []).length, 3);
   assert.match(root.innerHTML, /name="apiKey"/);
-  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 4); // suivi, pulsion, challenge, tests
+  assert.equal((root.innerHTML.match(/data-export="/g) || []).length, 5); // suivi, pulsion, challenge, tests, mind
   assert.match(root.innerHTML, /data-cloud-restore/);
   assert.match(root.innerHTML, /cloud non configuré/);
   assert.match(root.innerHTML, /Moi 0\.0\.0/);
@@ -166,4 +167,42 @@ test('Tests : rerendre la passation nettoie la scène précédente', async () =>
   assert.deepEqual(removed, []);
   render(root, ctx);
   assert.deepEqual(removed, ['click']); // l'écouteur « Commencer » de la première scène est retiré
+});
+
+test('Mind accueil : document vide puis arbre de test', async () => {
+  const { render } = await import('../../js/modules/mind/views/home.js');
+  const { makeDoc } = await import('../mind/fixtures.mjs');
+  const root = fakeRoot(), ctx = makeCtx();
+  render(root, ctx);
+  assert.match(root.innerHTML, /Rien ne pèse en ce moment/);
+  assert.match(root.innerHTML, /Aucun thème/);
+  assert.match(root.innerHTML, /id="fab"/);
+  ctx.stores.mind.replace(makeDoc());
+  render(root, ctx);
+  assert.match(root.innerHTML, /data-go="papa"/);
+  assert.equal((root.innerHTML.match(/data-done="/g) || []).length, 4);
+  assert.match(root.innerHTML, /Relations<\/span><\/span>\s*<span class="row-aside">3 sujets/);
+  assert.match(root.innerHTML, /data-nav="tree"/);
+  assert.match(root.innerHTML, /data-nav="settings"/);
+});
+
+test('Mind fiche : fil d\'Ariane, poids, actions du sous-arbre, journal agrégé, bandeau posé', async () => {
+  const { render } = await import('../../js/modules/mind/views/subject.js');
+  const { makeDoc } = await import('../mind/fixtures.mjs');
+  const root = fakeRoot(), ctx = makeCtx();
+  ctx.stores.mind.replace(makeDoc());
+  ctx.route = { tab: 'mind', view: 's', id: 'papa' };
+  render(root, ctx);
+  assert.match(root.innerHTML, /data-go="relations">Relations</);
+  assert.match(root.innerHTML, /Poids 3 sur 3/);
+  assert.equal((root.innerHTML.match(/data-done="/g) || []).length, 2); // e-papa-3 et e-com-1
+  assert.match(root.innerHTML, /Fait : Lui demander comment il va/);
+  assert.match(root.innerHTML, /data-compose/);
+  ctx.route = { tab: 'mind', view: 's', id: 'vacances' };
+  render(root, ctx);
+  assert.match(root.innerHTML, /Posé depuis/);
+  assert.match(root.innerHTML, /data-resume/);
+  ctx.route = { tab: 'mind', view: 's', id: 'nope' };
+  render(root, ctx);
+  assert.match(root.innerHTML, /Sujet introuvable/);
 });
