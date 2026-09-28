@@ -34,7 +34,21 @@ test('setDayField refuse champ, valeur ou jour invalides', () => {
   assert.throws(() => setDayField(store, '2026-09-20', 'mood', 11), /valeur/i);
   assert.throws(() => setDayField(store, '2026-09-20', 'bed', '9h'), /heure/i);
   assert.throws(() => setDayField(store, '2026-13-01', 'mood', 1), /jour/i);
+  assert.throws(() => setDayField(store, '2026-09-20', 'onsetMin', -1), /valeur/i);
+  assert.throws(() => setDayField(store, '2026-09-20', 'note', 'x'.repeat(141)), /note/i);
   assert.deepEqual(store.doc.days, {});
+});
+
+test('setDayField : endormissement, réveils et note', () => {
+  const { store } = newStore();
+  setDayField(store, '2026-09-20', 'onsetMin', 20);
+  setDayField(store, '2026-09-20', 'awakeMin', 0);
+  setDayField(store, '2026-09-20', 'note', '  Un mot  ');
+  assert.equal(store.doc.days['2026-09-20'].onsetMin, 20);
+  assert.equal(store.doc.days['2026-09-20'].awakeMin, 0);
+  assert.equal(store.doc.days['2026-09-20'].note, 'Un mot');
+  setDayField(store, '2026-09-20', 'note', '   ');
+  assert.equal(store.doc.days['2026-09-20'].note, null);
 });
 
 test('setDayFieldSoon diffère, flushPending persiste tout de suite', async () => {
